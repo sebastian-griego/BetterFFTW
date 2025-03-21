@@ -574,34 +574,42 @@ def unregister_scipy_fft():
         warnings.warn(f"Note: Could not reset SciPy FFT backend: {str(e)}")
         return True
 
-def use_as_default_fft():
+def use_as_default_fft(register_scipy=True):
     """
     Make BetterFFTW the default FFT implementation for both NumPy and SciPy.
     
-    This is a convenience function that calls both register_numpy_fft() and
-    register_scipy_fft(). Call this once to make all FFT calls in your program
-    use BetterFFTW.
+    Args:
+        register_scipy: Whether to also register for SciPy's FFT functions.
+                       Set to False to avoid SciPy-related warnings if you're
+                       not using SciPy's FFT functions.
     """
     np_success = register_numpy_fft()
     
-    # Try to register with SciPy, but continue even if it fails
-    try:
-        scipy_success = register_scipy_fft()
-    except Exception as e:
-        warnings.warn(f"SciPy FFT registration failed, but NumPy registration continues: {str(e)}")
-        scipy_success = False
+    # Only try to register with SciPy if requested
+    scipy_success = True
+    if register_scipy:
+        try:
+            scipy_success = register_scipy_fft()
+        except Exception as e:
+            warnings.warn(f"SciPy FFT registration failed, but NumPy registration continues: {str(e)}")
+            scipy_success = False
     
     # As long as NumPy registration worked, we're good
     return np_success
 
-def restore_default_fft():
+def restore_default_fft(unregister_scipy=True):
     """
     Restore the original NumPy and SciPy FFT implementations.
     
-    Undoes the changes made by use_as_default_fft().
+    Args:
+        unregister_scipy: Whether to also unregister from SciPy's FFT functions.
     """
     np_success = unregister_numpy_fft()
-    scipy_success = unregister_scipy_fft()
+    
+    scipy_success = True
+    if unregister_scipy:
+        scipy_success = unregister_scipy_fft()
+    
     return np_success and scipy_success
 
 

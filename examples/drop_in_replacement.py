@@ -61,7 +61,7 @@ def benchmark_betterfftw(sizes, repeats=20):
     betterfftw.set_planner_effort('FFTW_ESTIMATE')  # Start with fast planning
     
     # Make BetterFFTW the default FFT implementation
-    betterfftw.use_as_default()
+    betterfftw.use_as_default(register_scipy=False)
     
     results_first_call = {}
     results_subsequent = {}
@@ -92,7 +92,7 @@ def benchmark_betterfftw(sizes, repeats=20):
         print(f"BetterFFTW: {size}x{size} array: first call {results_first_call[size]:.6f}s, subsequent {avg_time:.6f}s")
     
     # Restore the original NumPy implementation
-    betterfftw.restore_default()
+    betterfftw.restore_default(unregister_scipy=False)
     
     return results_first_call, results_subsequent
 
@@ -129,7 +129,7 @@ def benchmark_3d_betterfftw(size, repeats=3):
     betterfftw.set_planner_effort('FFTW_ESTIMATE')  # Start with fast planning
     
     # Make BetterFFTW the default FFT implementation
-    betterfftw.use_as_default()
+    betterfftw.use_as_default(register_scipy=False)
     
     # Create random data
     data = np.random.random((size, size, size)).astype(np.float64)
@@ -154,7 +154,7 @@ def benchmark_3d_betterfftw(size, repeats=3):
     print(f"BetterFFTW 3D FFT: {size}x{size}x{size} array: first call {first_call_time:.6f}s, subsequent {avg_time:.6f}s")
     
     # Restore the original NumPy implementation
-    betterfftw.restore_default()
+    betterfftw.restore_default(unregister_scipy=False)
     
     return first_call_time, avg_time
 
@@ -181,7 +181,7 @@ def benchmark_large_2d(repeats=3):
     import betterfftw
     print("\nRunning BetterFFTW...")
     betterfftw.set_planner_effort('FFTW_ESTIMATE')
-    betterfftw.use_as_default()
+    betterfftw.use_as_default(register_scipy=False)
     
     betterfftw.clear_cache()
     start = time.time()
@@ -231,7 +231,7 @@ def benchmark_large_2d(repeats=3):
     speedup = numpy_time / bfft_time
     print(f"Speedup: {speedup:.2f}x")
     
-    betterfftw.restore_default()
+    betterfftw.restore_default(unregister_scipy=False)
     
     results['nonpow2'] = {'numpy': numpy_time, 'betterfftw': bfft_time, 'speedup': speedup}
     

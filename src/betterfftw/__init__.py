@@ -71,48 +71,25 @@ PLANNER_PATIENT = 'FFTW_PATIENT'
 PLANNER_EXHAUSTIVE = 'FFTW_EXHAUSTIVE'
 
 # Main convenience function to make BetterFFTW the default FFT implementation
-def use_as_default():
+def use_as_default(register_scipy=True):
     """
     Make BetterFFTW the default FFT implementation for both NumPy and SciPy.
     
-    After calling this function, any code that uses numpy.fft or scipy.fft
-    will automatically use BetterFFTW's accelerated implementation instead.
-    
-    This is the recommended way to use BetterFFTW for most users.
-    
-    Example:
-        import betterfftw
-        betterfftw.use_as_default()
-        
-        # Now all FFT calls use BetterFFTW automatically
-        import numpy as np
-        x = np.random.random(1024)
-        y = np.fft.fft(x)  # Uses BetterFFTW!
-        
-    Returns:
-        bool: True if registration was successful, False otherwise
+    Args:
+        register_scipy: Whether to also register for SciPy's FFT functions.
+                       Set to False to avoid SciPy-related warnings if you're
+                       not using SciPy's FFT functions.
     """
-    return use_as_default_fft()
+    return use_as_default_fft(register_scipy)
 
-def restore_default():
+def restore_default(unregister_scipy=True):
     """
     Restore the original NumPy and SciPy FFT implementations.
     
-    This undoes the changes made by use_as_default().
-    
-    Example:
-        import betterfftw
-        betterfftw.use_as_default()
-        
-        # Do some FFT operations with BetterFFTW
-        
-        # Switch back to original implementations
-        betterfftw.restore_default()
-        
-    Returns:
-        bool: True if restoration was successful, False otherwise
+    Args:
+        unregister_scipy: Whether to also unregister from SciPy's FFT functions.
     """
-    return restore_default_fft()
+    return restore_default_fft(unregister_scipy)
 
 # Try to import wisdom at package initialization time
 try:
