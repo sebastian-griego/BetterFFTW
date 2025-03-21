@@ -1,0 +1,2980 @@
+{
+  "system_info": {
+    "platform": "Windows-10-10.0.26100-SP0",
+    "processor": "Intel64 Family 6 Model 186 Stepping 3, GenuineIntel",
+    "python_version": "3.11.9",
+    "cpu_count": 12,
+    "physical_cores": 10,
+    "total_memory_gb": 15.690864562988281,
+    "date": "2025-03-21 10:45:01",
+    "numpy_version": "1.26.3",
+    "scipy_version": "1.13.1",
+    "betterfftw_version": "0.1.0"
+  },
+  "quick_mode": true,
+  "start_time": "2025-03-21 10:45:01",
+  "benchmarks": {
+    "fft_256_<class 'float32'>_pow2": {
+      "description": "fft on 256 <class 'float32'> array (power-of-2)",
+      "category": "1D_pow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "error": "float division by zero"
+        }
+      }
+    },
+    "fft_256_<class 'float64'>_pow2": {
+      "description": "fft on 256 <class 'float64'> array (power-of-2)",
+      "category": "1D_pow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "name": "fft_256_<class 'float64'>_pow2",
+          "description": "fft on 256 <class 'float64'> array (power-of-2)",
+          "implementation": "BetterFFTW",
+          "first_call": {
+            "duration": 0.0
+          },
+          "subsequent_calls": {
+            "stdev": 0.00029851174263987115,
+            "stdev_percent": 223.60679774997897,
+            "duration": 0.00013349850972493488,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.0
+        }
+      }
+    },
+    "fft_256_<class 'complex64'>_pow2": {
+      "description": "fft on 256 <class 'complex64'> array (power-of-2)",
+      "category": "1D_pow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "name": "fft_256_<class 'complex64'>_pow2",
+          "description": "fft on 256 <class 'complex64'> array (power-of-2)",
+          "implementation": "BetterFFTW",
+          "first_call": {
+            "duration": 0.0
+          },
+          "subsequent_calls": {
+            "stdev": 0.0002989737801031785,
+            "stdev_percent": 223.60679774997897,
+            "duration": 0.00013370513916015624,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.0
+        }
+      }
+    },
+    "fft_256_<class 'complex128'>_pow2": {
+      "description": "fft on 256 <class 'complex128'> array (power-of-2)",
+      "category": "1D_pow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "error": "float division by zero"
+        }
+      }
+    },
+    "ifft_256_<class 'float32'>_pow2": {
+      "description": "ifft on 256 <class 'float32'> array (power-of-2)",
+      "category": "1D_pow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "name": "ifft_256_<class 'float32'>_pow2",
+          "description": "ifft on 256 <class 'float32'> array (power-of-2)",
+          "implementation": "BetterFFTW",
+          "first_call": {
+            "duration": 0.0
+          },
+          "subsequent_calls": {
+            "stdev": 0.0061737090433693085,
+            "stdev_percent": 223.60679774997897,
+            "duration": 0.002760966618855794,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.0
+        }
+      }
+    },
+    "ifft_256_<class 'float64'>_pow2": {
+      "description": "ifft on 256 <class 'float64'> array (power-of-2)",
+      "category": "1D_pow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "name": "ifft_256_<class 'float64'>_pow2",
+          "description": "ifft on 256 <class 'float64'> array (power-of-2)",
+          "implementation": "BetterFFTW",
+          "first_call": {
+            "duration": 0.0
+          },
+          "subsequent_calls": {
+            "stdev": 0.005647732703408902,
+            "stdev_percent": 223.60679774997897,
+            "duration": 0.0025257428487141928,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.0
+        }
+      }
+    },
+    "ifft_256_<class 'complex64'>_pow2": {
+      "description": "ifft on 256 <class 'complex64'> array (power-of-2)",
+      "category": "1D_pow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "error": "float division by zero"
+        }
+      }
+    },
+    "ifft_256_<class 'complex128'>_pow2": {
+      "description": "ifft on 256 <class 'complex128'> array (power-of-2)",
+      "category": "1D_pow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "error": "float division by zero"
+        }
+      }
+    },
+    "rfft_256_<class 'float32'>_pow2": {
+      "description": "rfft on 256 <class 'float32'> array (power-of-2)",
+      "category": "1D_pow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "name": "rfft_256_<class 'float32'>_pow2",
+          "description": "rfft on 256 <class 'float32'> array (power-of-2)",
+          "implementation": "BetterFFTW",
+          "first_call": {
+            "duration": 0.0
+          },
+          "subsequent_calls": {
+            "stdev": 0.007508606357550868,
+            "stdev_percent": 223.60679774997897,
+            "duration": 0.0033579508463541666,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.0
+        }
+      }
+    },
+    "rfft_256_<class 'float64'>_pow2": {
+      "description": "rfft on 256 <class 'float64'> array (power-of-2)",
+      "category": "1D_pow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "name": "rfft_256_<class 'float64'>_pow2",
+          "description": "rfft on 256 <class 'float64'> array (power-of-2)",
+          "implementation": "BetterFFTW",
+          "first_call": {
+            "duration": 0.0
+          },
+          "subsequent_calls": {
+            "stdev": 0.009505176860531867,
+            "stdev_percent": 223.60679774997894,
+            "duration": 0.004250844319661459,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.0
+        }
+      }
+    },
+    "irfft_256_<class 'float32'>_pow2": {
+      "description": "irfft on 256 <class 'float32'> array (power-of-2)",
+      "category": "1D_pow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "name": "irfft_256_<class 'float32'>_pow2",
+          "description": "irfft on 256 <class 'float32'> array (power-of-2)",
+          "implementation": "BetterFFTW",
+          "first_call": {
+            "duration": 0.0
+          },
+          "subsequent_calls": {
+            "stdev": 0.009110987821644045,
+            "stdev_percent": 223.60679774997897,
+            "duration": 0.004074557622273763,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.0
+        }
+      }
+    },
+    "irfft_256_<class 'float64'>_pow2": {
+      "description": "irfft on 256 <class 'float64'> array (power-of-2)",
+      "category": "1D_pow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "name": "irfft_256_<class 'float64'>_pow2",
+          "description": "irfft on 256 <class 'float64'> array (power-of-2)",
+          "implementation": "BetterFFTW",
+          "first_call": {
+            "duration": 0.0
+          },
+          "subsequent_calls": {
+            "stdev": 0.009711778689316908,
+            "stdev_percent": 223.60679774997897,
+            "duration": 0.0043432394663492834,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.0
+        }
+      }
+    },
+    "irfft_256_<class 'complex64'>_pow2": {
+      "description": "irfft on 256 <class 'complex64'> array (power-of-2)",
+      "category": "1D_pow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "error": "float division by zero"
+        }
+      }
+    },
+    "irfft_256_<class 'complex128'>_pow2": {
+      "description": "irfft on 256 <class 'complex128'> array (power-of-2)",
+      "category": "1D_pow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "error": "float division by zero"
+        }
+      }
+    },
+    "fft_1024_<class 'float32'>_pow2": {
+      "description": "fft on 1024 <class 'float32'> array (power-of-2)",
+      "category": "1D_pow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "name": "fft_1024_<class 'float32'>_pow2",
+          "description": "fft on 1024 <class 'float32'> array (power-of-2)",
+          "implementation": "BetterFFTW",
+          "first_call": {
+            "duration": 0.0
+          },
+          "subsequent_calls": {
+            "stdev": 0.010823760698124343,
+            "stdev_percent": 223.60679774997897,
+            "duration": 0.004840532938639322,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.0
+        }
+      }
+    },
+    "fft_1024_<class 'float64'>_pow2": {
+      "description": "fft on 1024 <class 'float64'> array (power-of-2)",
+      "category": "1D_pow2",
+      "implementations": {
+        "NumPy": {
+          "name": "fft_1024_<class 'float64'>_pow2",
+          "description": "fft on 1024 <class 'float64'> array (power-of-2)",
+          "implementation": "NumPy",
+          "first_call": {
+            "duration": 0.0
+          },
+          "subsequent_calls": {
+            "stdev": 0.0003826736436484692,
+            "stdev_percent": 223.60679774997897,
+            "duration": 0.00017113685607910155,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.0
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "name": "fft_1024_<class 'float64'>_pow2",
+          "description": "fft on 1024 <class 'float64'> array (power-of-2)",
+          "implementation": "BetterFFTW",
+          "first_call": {
+            "duration": 0.0
+          },
+          "subsequent_calls": {
+            "stdev": 0.013075375880850993,
+            "stdev_percent": 223.60679774997897,
+            "duration": 0.0058474858601888025,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.0
+        }
+      }
+    },
+    "fft_1024_<class 'complex64'>_pow2": {
+      "description": "fft on 1024 <class 'complex64'> array (power-of-2)",
+      "category": "1D_pow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "name": "fft_1024_<class 'complex64'>_pow2",
+          "description": "fft on 1024 <class 'complex64'> array (power-of-2)",
+          "implementation": "BetterFFTW",
+          "first_call": {
+            "duration": 0.0
+          },
+          "subsequent_calls": {
+            "stdev": 0.0007781777122395498,
+            "stdev_percent": 223.60679774997897,
+            "duration": 0.0003480116526285807,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.0
+        }
+      }
+    },
+    "fft_1024_<class 'complex128'>_pow2": {
+      "description": "fft on 1024 <class 'complex128'> array (power-of-2)",
+      "category": "1D_pow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "error": "float division by zero"
+        }
+      }
+    },
+    "ifft_1024_<class 'float32'>_pow2": {
+      "description": "ifft on 1024 <class 'float32'> array (power-of-2)",
+      "category": "1D_pow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "error": "float division by zero"
+        }
+      }
+    },
+    "ifft_1024_<class 'float64'>_pow2": {
+      "description": "ifft on 1024 <class 'float64'> array (power-of-2)",
+      "category": "1D_pow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "name": "ifft_1024_<class 'float64'>_pow2",
+          "description": "ifft on 1024 <class 'float64'> array (power-of-2)",
+          "implementation": "BetterFFTW",
+          "first_call": {
+            "duration": 0.0020029544830322266
+          },
+          "subsequent_calls": {
+            "stdev": 0.008867067582361103,
+            "stdev_percent": 223.60679774997897,
+            "duration": 0.0039654731750488285,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.5050984824799788
+        }
+      }
+    },
+    "ifft_1024_<class 'complex64'>_pow2": {
+      "description": "ifft on 1024 <class 'complex64'> array (power-of-2)",
+      "category": "1D_pow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "name": "ifft_1024_<class 'complex64'>_pow2",
+          "description": "ifft on 1024 <class 'complex64'> array (power-of-2)",
+          "implementation": "BetterFFTW",
+          "first_call": {
+            "duration": 0.0
+          },
+          "subsequent_calls": {
+            "stdev": 0.0003791550506586672,
+            "stdev_percent": 223.60679774997897,
+            "duration": 0.00016956329345703126,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.0
+        }
+      }
+    },
+    "ifft_1024_<class 'complex128'>_pow2": {
+      "description": "ifft on 1024 <class 'complex128'> array (power-of-2)",
+      "category": "1D_pow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "error": "float division by zero"
+        }
+      }
+    },
+    "rfft_1024_<class 'float32'>_pow2": {
+      "description": "rfft on 1024 <class 'float32'> array (power-of-2)",
+      "category": "1D_pow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "name": "rfft_1024_<class 'float32'>_pow2",
+          "description": "rfft on 1024 <class 'float32'> array (power-of-2)",
+          "implementation": "BetterFFTW",
+          "first_call": {
+            "duration": 0.0
+          },
+          "subsequent_calls": {
+            "stdev": 0.017982320365204908,
+            "stdev_percent": 223.60679774997897,
+            "duration": 0.008041938145955402,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.0
+        }
+      }
+    },
+    "rfft_1024_<class 'float64'>_pow2": {
+      "description": "rfft on 1024 <class 'float64'> array (power-of-2)",
+      "category": "1D_pow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "name": "rfft_1024_<class 'float64'>_pow2",
+          "description": "rfft on 1024 <class 'float64'> array (power-of-2)",
+          "implementation": "BetterFFTW",
+          "first_call": {
+            "duration": 0.0
+          },
+          "subsequent_calls": {
+            "stdev": 0.01960886994276339,
+            "stdev_percent": 223.60679774997897,
+            "duration": 0.00876935323079427,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.0
+        }
+      }
+    },
+    "irfft_1024_<class 'float32'>_pow2": {
+      "description": "irfft on 1024 <class 'float32'> array (power-of-2)",
+      "category": "1D_pow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "name": "irfft_1024_<class 'float32'>_pow2",
+          "description": "irfft on 1024 <class 'float32'> array (power-of-2)",
+          "implementation": "BetterFFTW",
+          "first_call": {
+            "duration": 0.0
+          },
+          "subsequent_calls": {
+            "stdev": 0.018011251018676615,
+            "stdev_percent": 223.60679774997897,
+            "duration": 0.008054876327514648,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.0
+        }
+      }
+    },
+    "irfft_1024_<class 'float64'>_pow2": {
+      "description": "irfft on 1024 <class 'float64'> array (power-of-2)",
+      "category": "1D_pow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "name": "irfft_1024_<class 'float64'>_pow2",
+          "description": "irfft on 1024 <class 'float64'> array (power-of-2)",
+          "implementation": "BetterFFTW",
+          "first_call": {
+            "duration": 0.015741825103759766
+          },
+          "subsequent_calls": {
+            "stdev": 0.020230772368375068,
+            "stdev_percent": 223.60679774997897,
+            "duration": 0.009047476450602214,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 1.7399133548130943
+        }
+      }
+    },
+    "irfft_1024_<class 'complex64'>_pow2": {
+      "description": "irfft on 1024 <class 'complex64'> array (power-of-2)",
+      "category": "1D_pow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "error": "float division by zero"
+        }
+      }
+    },
+    "irfft_1024_<class 'complex128'>_pow2": {
+      "description": "irfft on 1024 <class 'complex128'> array (power-of-2)",
+      "category": "1D_pow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "error": "float division by zero"
+        }
+      }
+    },
+    "fft_4096_<class 'float32'>_pow2": {
+      "description": "fft on 4096 <class 'float32'> array (power-of-2)",
+      "category": "1D_pow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "name": "fft_4096_<class 'float32'>_pow2",
+          "description": "fft on 4096 <class 'float32'> array (power-of-2)",
+          "implementation": "BetterFFTW",
+          "first_call": {
+            "duration": 0.0
+          },
+          "subsequent_calls": {
+            "stdev": 0.015774811989552443,
+            "stdev_percent": 223.60679774997894,
+            "duration": 0.007054710388183593,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.0
+        }
+      }
+    },
+    "fft_4096_<class 'float64'>_pow2": {
+      "description": "fft on 4096 <class 'float64'> array (power-of-2)",
+      "category": "1D_pow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "name": "fft_4096_<class 'float64'>_pow2",
+          "description": "fft on 4096 <class 'float64'> array (power-of-2)",
+          "implementation": "BetterFFTW",
+          "first_call": {
+            "duration": 0.0
+          },
+          "subsequent_calls": {
+            "stdev": 0.02209946511804993,
+            "stdev_percent": 223.60679774997897,
+            "duration": 0.00988318125406901,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.0
+        }
+      }
+    },
+    "fft_4096_<class 'complex64'>_pow2": {
+      "description": "fft on 4096 <class 'complex64'> array (power-of-2)",
+      "category": "1D_pow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "error": "float division by zero"
+        }
+      }
+    },
+    "fft_4096_<class 'complex128'>_pow2": {
+      "description": "fft on 4096 <class 'complex128'> array (power-of-2)",
+      "category": "1D_pow2",
+      "implementations": {
+        "NumPy": {
+          "name": "fft_4096_<class 'complex128'>_pow2",
+          "description": "fft on 4096 <class 'complex128'> array (power-of-2)",
+          "implementation": "NumPy",
+          "first_call": {
+            "duration": 0.0
+          },
+          "subsequent_calls": {
+            "stdev": 0.0014787686719867986,
+            "stdev_percent": 223.60679774997897,
+            "duration": 0.0006613254547119141,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.0
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "error": "float division by zero"
+        }
+      }
+    },
+    "ifft_4096_<class 'float32'>_pow2": {
+      "description": "ifft on 4096 <class 'float32'> array (power-of-2)",
+      "category": "1D_pow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "name": "ifft_4096_<class 'float32'>_pow2",
+          "description": "ifft on 4096 <class 'float32'> array (power-of-2)",
+          "implementation": "BetterFFTW",
+          "first_call": {
+            "duration": 0.0
+          },
+          "subsequent_calls": {
+            "stdev": 0.013180720422485066,
+            "stdev_percent": 223.60679774997897,
+            "duration": 0.005894597371419271,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.0
+        }
+      }
+    },
+    "ifft_4096_<class 'float64'>_pow2": {
+      "description": "ifft on 4096 <class 'float64'> array (power-of-2)",
+      "category": "1D_pow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "name": "ifft_4096_<class 'float64'>_pow2",
+          "description": "ifft on 4096 <class 'float64'> array (power-of-2)",
+          "implementation": "BetterFFTW",
+          "first_call": {
+            "duration": 0.0
+          },
+          "subsequent_calls": {
+            "stdev": 0.0003352259503011388,
+            "stdev_percent": 223.60679774997897,
+            "duration": 0.0001499176025390625,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.0
+        }
+      }
+    },
+    "ifft_4096_<class 'complex64'>_pow2": {
+      "description": "ifft on 4096 <class 'complex64'> array (power-of-2)",
+      "category": "1D_pow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "name": "ifft_4096_<class 'complex64'>_pow2",
+          "description": "ifft on 4096 <class 'complex64'> array (power-of-2)",
+          "implementation": "SciPy",
+          "first_call": {
+            "duration": 0.0010068416595458984
+          },
+          "subsequent_calls": {
+            "stdev": 0.00010385180521415687,
+            "stdev_percent": 223.60679774997894,
+            "duration": 4.644393920898438e-05,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 21.67864476386037
+        },
+        "BetterFFTW": {
+          "error": "float division by zero"
+        }
+      }
+    },
+    "ifft_4096_<class 'complex128'>_pow2": {
+      "description": "ifft on 4096 <class 'complex128'> array (power-of-2)",
+      "category": "1D_pow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "error": "float division by zero"
+        }
+      }
+    },
+    "rfft_4096_<class 'float32'>_pow2": {
+      "description": "rfft on 4096 <class 'float32'> array (power-of-2)",
+      "category": "1D_pow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "name": "rfft_4096_<class 'float32'>_pow2",
+          "description": "rfft on 4096 <class 'float32'> array (power-of-2)",
+          "implementation": "BetterFFTW",
+          "first_call": {
+            "duration": 0.0
+          },
+          "subsequent_calls": {
+            "stdev": 0.030888341745082096,
+            "stdev_percent": 223.60679774997897,
+            "duration": 0.01381368637084961,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.0
+        }
+      }
+    },
+    "rfft_4096_<class 'float64'>_pow2": {
+      "description": "rfft on 4096 <class 'float64'> array (power-of-2)",
+      "category": "1D_pow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "error": "float division by zero"
+        }
+      }
+    },
+    "irfft_4096_<class 'float32'>_pow2": {
+      "description": "irfft on 4096 <class 'float32'> array (power-of-2)",
+      "category": "1D_pow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "error": "float division by zero"
+        }
+      }
+    },
+    "irfft_4096_<class 'float64'>_pow2": {
+      "description": "irfft on 4096 <class 'float64'> array (power-of-2)",
+      "category": "1D_pow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "name": "irfft_4096_<class 'float64'>_pow2",
+          "description": "irfft on 4096 <class 'float64'> array (power-of-2)",
+          "implementation": "BetterFFTW",
+          "first_call": {
+            "duration": 0.001539468765258789
+          },
+          "subsequent_calls": {
+            "stdev": 0.0385823317494492,
+            "stdev_percent": 223.60679774997897,
+            "duration": 0.01725454330444336,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.08922106706019554
+        }
+      }
+    },
+    "irfft_4096_<class 'complex64'>_pow2": {
+      "description": "irfft on 4096 <class 'complex64'> array (power-of-2)",
+      "category": "1D_pow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "error": "float division by zero"
+        }
+      }
+    },
+    "irfft_4096_<class 'complex128'>_pow2": {
+      "description": "irfft on 4096 <class 'complex128'> array (power-of-2)",
+      "category": "1D_pow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "name": "irfft_4096_<class 'complex128'>_pow2",
+          "description": "irfft on 4096 <class 'complex128'> array (power-of-2)",
+          "implementation": "BetterFFTW",
+          "first_call": {
+            "duration": 0.006167411804199219
+          },
+          "subsequent_calls": {
+            "stdev": 0.0001547114675212953,
+            "stdev_percent": 223.60679774997897,
+            "duration": 6.918907165527343e-05,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 89.13852515506548
+        }
+      }
+    },
+    "fft_384_<class 'float64'>_nonpow2": {
+      "description": "fft on 384 <class 'float64'> array (non-power-of-2)",
+      "category": "1D_nonpow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "name": "fft_384_<class 'float64'>_nonpow2",
+          "description": "fft on 384 <class 'float64'> array (non-power-of-2)",
+          "implementation": "BetterFFTW",
+          "first_call": {
+            "duration": 0.0
+          },
+          "subsequent_calls": {
+            "stdev": 0.01565983574387558,
+            "stdev_percent": 223.60679774997897,
+            "duration": 0.007003291447957356,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.0
+        }
+      }
+    },
+    "fft_384_<class 'complex128'>_nonpow2": {
+      "description": "fft on 384 <class 'complex128'> array (non-power-of-2)",
+      "category": "1D_nonpow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "error": "float division by zero"
+        }
+      }
+    },
+    "ifft_384_<class 'float64'>_nonpow2": {
+      "description": "ifft on 384 <class 'float64'> array (non-power-of-2)",
+      "category": "1D_nonpow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "name": "ifft_384_<class 'float64'>_nonpow2",
+          "description": "ifft on 384 <class 'float64'> array (non-power-of-2)",
+          "implementation": "BetterFFTW",
+          "first_call": {
+            "duration": 0.0
+          },
+          "subsequent_calls": {
+            "stdev": 0.015184434735475661,
+            "stdev_percent": 223.60679774997897,
+            "duration": 0.006790685653686524,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.0
+        }
+      }
+    },
+    "ifft_384_<class 'complex128'>_nonpow2": {
+      "description": "ifft on 384 <class 'complex128'> array (non-power-of-2)",
+      "category": "1D_nonpow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "name": "ifft_384_<class 'complex128'>_nonpow2",
+          "description": "ifft on 384 <class 'complex128'> array (non-power-of-2)",
+          "implementation": "BetterFFTW",
+          "first_call": {
+            "duration": 0.007652759552001953
+          },
+          "subsequent_calls": {
+            "stdev": 7.55608959224153e-05,
+            "stdev_percent": 223.60679774997897,
+            "duration": 3.3791859944661455e-05,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 226.4675446848542
+        }
+      }
+    },
+    "rfft_384_<class 'float64'>_nonpow2": {
+      "description": "rfft on 384 <class 'float64'> array (non-power-of-2)",
+      "category": "1D_nonpow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "name": "rfft_384_<class 'float64'>_nonpow2",
+          "description": "rfft on 384 <class 'float64'> array (non-power-of-2)",
+          "implementation": "SciPy",
+          "first_call": {
+            "duration": 0.0
+          },
+          "subsequent_calls": {
+            "stdev": 0.00013743837466226715,
+            "stdev_percent": 223.60679774997894,
+            "duration": 6.146430969238282e-05,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.0
+        },
+        "BetterFFTW": {
+          "error": "float division by zero"
+        }
+      }
+    },
+    "irfft_384_<class 'float64'>_nonpow2": {
+      "description": "irfft on 384 <class 'float64'> array (non-power-of-2)",
+      "category": "1D_nonpow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "name": "irfft_384_<class 'float64'>_nonpow2",
+          "description": "irfft on 384 <class 'float64'> array (non-power-of-2)",
+          "implementation": "BetterFFTW",
+          "first_call": {
+            "duration": 0.0010461807250976562
+          },
+          "subsequent_calls": {
+            "stdev": 0.027934175996276144,
+            "stdev_percent": 222.10227032268634,
+            "duration": 0.012577168146769206,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.08318094446136484
+        }
+      }
+    },
+    "irfft_384_<class 'complex128'>_nonpow2": {
+      "description": "irfft on 384 <class 'complex128'> array (non-power-of-2)",
+      "category": "1D_nonpow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "name": "irfft_384_<class 'complex128'>_nonpow2",
+          "description": "irfft on 384 <class 'complex128'> array (non-power-of-2)",
+          "implementation": "SciPy",
+          "first_call": {
+            "duration": 0.0
+          },
+          "subsequent_calls": {
+            "stdev": 0.0001526856109514093,
+            "stdev_percent": 223.60679774997897,
+            "duration": 6.82830810546875e-05,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.0
+        },
+        "BetterFFTW": {
+          "name": "irfft_384_<class 'complex128'>_nonpow2",
+          "description": "irfft on 384 <class 'complex128'> array (non-power-of-2)",
+          "implementation": "BetterFFTW",
+          "first_call": {
+            "duration": 0.0
+          },
+          "subsequent_calls": {
+            "stdev": 0.0001400328927254545,
+            "stdev_percent": 223.60679774997897,
+            "duration": 6.262461344401041e-05,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.0
+        }
+      }
+    },
+    "fft_768_<class 'float64'>_nonpow2": {
+      "description": "fft on 768 <class 'float64'> array (non-power-of-2)",
+      "category": "1D_nonpow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "name": "fft_768_<class 'float64'>_nonpow2",
+          "description": "fft on 768 <class 'float64'> array (non-power-of-2)",
+          "implementation": "BetterFFTW",
+          "first_call": {
+            "duration": 0.0006721019744873047
+          },
+          "subsequent_calls": {
+            "stdev": 0.022709994313795577,
+            "stdev_percent": 223.60679774997894,
+            "duration": 0.01015621821085612,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.06617640154372478
+        }
+      }
+    },
+    "fft_768_<class 'complex128'>_nonpow2": {
+      "description": "fft on 768 <class 'complex128'> array (non-power-of-2)",
+      "category": "1D_nonpow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "error": "float division by zero"
+        }
+      }
+    },
+    "ifft_768_<class 'float64'>_nonpow2": {
+      "description": "ifft on 768 <class 'float64'> array (non-power-of-2)",
+      "category": "1D_nonpow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "error": "float division by zero"
+        }
+      }
+    },
+    "ifft_768_<class 'complex128'>_nonpow2": {
+      "description": "ifft on 768 <class 'complex128'> array (non-power-of-2)",
+      "category": "1D_nonpow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "error": "float division by zero"
+        }
+      }
+    },
+    "rfft_768_<class 'float64'>_nonpow2": {
+      "description": "rfft on 768 <class 'float64'> array (non-power-of-2)",
+      "category": "1D_nonpow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "error": "float division by zero"
+        }
+      }
+    },
+    "irfft_768_<class 'float64'>_nonpow2": {
+      "description": "irfft on 768 <class 'float64'> array (non-power-of-2)",
+      "category": "1D_nonpow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "name": "irfft_768_<class 'float64'>_nonpow2",
+          "description": "irfft on 768 <class 'float64'> array (non-power-of-2)",
+          "implementation": "BetterFFTW",
+          "first_call": {
+            "duration": 0.0020792484283447266
+          },
+          "subsequent_calls": {
+            "stdev": 0.03789371277098171,
+            "stdev_percent": 221.4913334404243,
+            "duration": 0.017108440399169922,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.12153348755539452
+        }
+      }
+    },
+    "irfft_768_<class 'complex128'>_nonpow2": {
+      "description": "irfft on 768 <class 'complex128'> array (non-power-of-2)",
+      "category": "1D_nonpow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "name": "irfft_768_<class 'complex128'>_nonpow2",
+          "description": "irfft on 768 <class 'complex128'> array (non-power-of-2)",
+          "implementation": "BetterFFTW",
+          "first_call": {
+            "duration": 0.0
+          },
+          "subsequent_calls": {
+            "stdev": 0.0005514239417856413,
+            "stdev_percent": 223.60679774997894,
+            "duration": 0.0002466042836507162,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.0
+        }
+      }
+    },
+    "fft_3072_<class 'float64'>_nonpow2": {
+      "description": "fft on 3072 <class 'float64'> array (non-power-of-2)",
+      "category": "1D_nonpow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "name": "fft_3072_<class 'float64'>_nonpow2",
+          "description": "fft on 3072 <class 'float64'> array (non-power-of-2)",
+          "implementation": "BetterFFTW",
+          "first_call": {
+            "duration": 0.0
+          },
+          "subsequent_calls": {
+            "stdev": 0.038006988483601574,
+            "stdev_percent": 223.60679774997897,
+            "duration": 0.016997241973876955,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.0
+        }
+      }
+    },
+    "fft_3072_<class 'complex128'>_nonpow2": {
+      "description": "fft on 3072 <class 'complex128'> array (non-power-of-2)",
+      "category": "1D_nonpow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "error": "float division by zero"
+        }
+      }
+    },
+    "ifft_3072_<class 'float64'>_nonpow2": {
+      "description": "ifft on 3072 <class 'float64'> array (non-power-of-2)",
+      "category": "1D_nonpow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "name": "ifft_3072_<class 'float64'>_nonpow2",
+          "description": "ifft on 3072 <class 'float64'> array (non-power-of-2)",
+          "implementation": "BetterFFTW",
+          "first_call": {
+            "duration": 0.0
+          },
+          "subsequent_calls": {
+            "stdev": 0.029787448635394037,
+            "stdev_percent": 223.60679774997897,
+            "duration": 0.013321352005004884,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.0
+        }
+      }
+    },
+    "ifft_3072_<class 'complex128'>_nonpow2": {
+      "description": "ifft on 3072 <class 'complex128'> array (non-power-of-2)",
+      "category": "1D_nonpow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "name": "ifft_3072_<class 'complex128'>_nonpow2",
+          "description": "ifft on 3072 <class 'complex128'> array (non-power-of-2)",
+          "implementation": "BetterFFTW",
+          "first_call": {
+            "duration": 0.0
+          },
+          "subsequent_calls": {
+            "stdev": 0.0007736284202931392,
+            "stdev_percent": 223.60679774997897,
+            "duration": 0.0003459771474202474,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.0
+        }
+      }
+    },
+    "rfft_3072_<class 'float64'>_nonpow2": {
+      "description": "rfft on 3072 <class 'float64'> array (non-power-of-2)",
+      "category": "1D_nonpow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "name": "rfft_3072_<class 'float64'>_nonpow2",
+          "description": "rfft on 3072 <class 'float64'> array (non-power-of-2)",
+          "implementation": "BetterFFTW",
+          "first_call": {
+            "duration": 0.0
+          },
+          "subsequent_calls": {
+            "stdev": 0.0613322745331492,
+            "stdev_percent": 223.60679774997897,
+            "duration": 0.027428627014160156,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.0
+        }
+      }
+    },
+    "irfft_3072_<class 'float64'>_nonpow2": {
+      "description": "irfft on 3072 <class 'float64'> array (non-power-of-2)",
+      "category": "1D_nonpow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "name": "irfft_3072_<class 'float64'>_nonpow2",
+          "description": "irfft on 3072 <class 'float64'> array (non-power-of-2)",
+          "implementation": "BetterFFTW",
+          "first_call": {
+            "duration": 0.0
+          },
+          "subsequent_calls": {
+            "stdev": 0.06888107815000781,
+            "stdev_percent": 223.60679774997897,
+            "duration": 0.030804554621378582,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.0
+        }
+      }
+    },
+    "irfft_3072_<class 'complex128'>_nonpow2": {
+      "description": "irfft on 3072 <class 'complex128'> array (non-power-of-2)",
+      "category": "1D_nonpow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "error": "float division by zero"
+        }
+      }
+    },
+    "fft2_64x64_<class 'float64'>_pow2": {
+      "description": "fft2 on 64x64 <class 'float64'> array (power-of-2)",
+      "category": "2D_pow2",
+      "implementations": {
+        "NumPy": {
+          "name": "fft2_64x64_<class 'float64'>_pow2",
+          "description": "fft2 on 64x64 <class 'float64'> array (power-of-2)",
+          "implementation": "NumPy",
+          "first_call": {
+            "duration": 0.0
+          },
+          "subsequent_calls": {
+            "stdev": 0.0009478165439600054,
+            "stdev_percent": 223.60679774997897,
+            "duration": 0.00042387644449869795,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.0
+        },
+        "SciPy": {
+          "name": "fft2_64x64_<class 'float64'>_pow2",
+          "description": "fft2 on 64x64 <class 'float64'> array (power-of-2)",
+          "implementation": "SciPy",
+          "first_call": {
+            "duration": 0.0
+          },
+          "subsequent_calls": {
+            "stdev": 0.0007978676164451087,
+            "stdev_percent": 223.60679774997897,
+            "duration": 0.0003568172454833984,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.0
+        },
+        "BetterFFTW": {
+          "name": "fft2_64x64_<class 'float64'>_pow2",
+          "description": "fft2 on 64x64 <class 'float64'> array (power-of-2)",
+          "implementation": "BetterFFTW",
+          "first_call": {
+            "duration": 0.0
+          },
+          "subsequent_calls": {
+            "stdev": 0.008735564612035169,
+            "stdev_percent": 223.60679774997897,
+            "duration": 0.003906663258870443,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.0
+        }
+      }
+    },
+    "fft2_64x64_<class 'complex128'>_pow2": {
+      "description": "fft2 on 64x64 <class 'complex128'> array (power-of-2)",
+      "category": "2D_pow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "error": "float division by zero"
+        }
+      }
+    },
+    "ifft2_64x64_<class 'float64'>_pow2": {
+      "description": "ifft2 on 64x64 <class 'float64'> array (power-of-2)",
+      "category": "2D_pow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "name": "ifft2_64x64_<class 'float64'>_pow2",
+          "description": "ifft2 on 64x64 <class 'float64'> array (power-of-2)",
+          "implementation": "BetterFFTW",
+          "first_call": {
+            "duration": 0.0
+          },
+          "subsequent_calls": {
+            "stdev": 0.0067722608064122985,
+            "stdev_percent": 223.60679774997897,
+            "duration": 0.0030286471048990887,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.0
+        }
+      }
+    },
+    "ifft2_64x64_<class 'complex128'>_pow2": {
+      "description": "ifft2 on 64x64 <class 'complex128'> array (power-of-2)",
+      "category": "2D_pow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "name": "ifft2_64x64_<class 'complex128'>_pow2",
+          "description": "ifft2 on 64x64 <class 'complex128'> array (power-of-2)",
+          "implementation": "BetterFFTW",
+          "first_call": {
+            "duration": 0.0
+          },
+          "subsequent_calls": {
+            "stdev": 0.0023927498570953743,
+            "stdev_percent": 223.60679774997897,
+            "duration": 0.0010700702667236328,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.0
+        }
+      }
+    },
+    "rfft2_64x64_<class 'float64'>_pow2": {
+      "description": "rfft2 on 64x64 <class 'float64'> array (power-of-2)",
+      "category": "2D_pow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "name": "rfft2_64x64_<class 'float64'>_pow2",
+          "description": "rfft2 on 64x64 <class 'float64'> array (power-of-2)",
+          "implementation": "BetterFFTW",
+          "first_call": {
+            "duration": 0.008007049560546875
+          },
+          "subsequent_calls": {
+            "stdev": 0.00819992102668864,
+            "stdev_percent": 223.60679774997897,
+            "duration": 0.003667116165161133,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 2.1834731161823027
+        }
+      }
+    },
+    "irfft2_64x64_<class 'float64'>_pow2": {
+      "description": "irfft2 on 64x64 <class 'float64'> array (power-of-2)",
+      "category": "2D_pow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "error": "irfft2() got an unexpected keyword argument 'overwrite_input'"
+        }
+      }
+    },
+    "irfft2_64x64_<class 'complex128'>_pow2": {
+      "description": "irfft2 on 64x64 <class 'complex128'> array (power-of-2)",
+      "category": "2D_pow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "error": "irfft2() got an unexpected keyword argument 'overwrite_input'"
+        }
+      }
+    },
+    "fft2_512x512_<class 'float64'>_pow2": {
+      "description": "fft2 on 512x512 <class 'float64'> array (power-of-2)",
+      "category": "2D_pow2",
+      "implementations": {
+        "NumPy": {
+          "name": "fft2_512x512_<class 'float64'>_pow2",
+          "description": "fft2 on 512x512 <class 'float64'> array (power-of-2)",
+          "implementation": "NumPy",
+          "first_call": {
+            "duration": 0.008039236068725586
+          },
+          "subsequent_calls": {
+            "stdev": 0.002416342642344456,
+            "stdev_percent": 37.87332159580338,
+            "duration": 0.006380065282185873,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 1.2600554560424913
+        },
+        "SciPy": {
+          "name": "fft2_512x512_<class 'float64'>_pow2",
+          "description": "fft2 on 512x512 <class 'float64'> array (power-of-2)",
+          "implementation": "SciPy",
+          "first_call": {
+            "duration": 0.0
+          },
+          "subsequent_calls": {
+            "stdev": 0.0009568482317139119,
+            "stdev_percent": 18.30261664484493,
+            "duration": 0.005227931340535482,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.0
+        },
+        "BetterFFTW": {
+          "name": "fft2_512x512_<class 'float64'>_pow2",
+          "description": "fft2 on 512x512 <class 'float64'> array (power-of-2)",
+          "implementation": "BetterFFTW",
+          "first_call": {
+            "duration": 0.00967860221862793
+          },
+          "subsequent_calls": {
+            "stdev": 0.0289911589631089,
+            "stdev_percent": 189.24205381816992,
+            "duration": 0.01531961758931478,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.6317783170631244
+        }
+      }
+    },
+    "fft2_512x512_<class 'complex128'>_pow2": {
+      "description": "fft2 on 512x512 <class 'complex128'> array (power-of-2)",
+      "category": "2D_pow2",
+      "implementations": {
+        "NumPy": {
+          "name": "fft2_512x512_<class 'complex128'>_pow2",
+          "description": "fft2 on 512x512 <class 'complex128'> array (power-of-2)",
+          "implementation": "NumPy",
+          "first_call": {
+            "duration": 0.008286237716674805
+          },
+          "subsequent_calls": {
+            "stdev": 0.002449792518685022,
+            "stdev_percent": 41.282451112594366,
+            "duration": 0.005934222539265951,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 1.3963476532681218
+        },
+        "SciPy": {
+          "name": "fft2_512x512_<class 'complex128'>_pow2",
+          "description": "fft2 on 512x512 <class 'complex128'> array (power-of-2)",
+          "implementation": "SciPy",
+          "first_call": {
+            "duration": 0.009139537811279297
+          },
+          "subsequent_calls": {
+            "stdev": 0.0017775545998876274,
+            "stdev_percent": 27.90967445168608,
+            "duration": 0.00636895497639974,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 1.4350137259795357
+        },
+        "BetterFFTW": {
+          "name": "fft2_512x512_<class 'complex128'>_pow2",
+          "description": "fft2 on 512x512 <class 'complex128'> array (power-of-2)",
+          "implementation": "BetterFFTW",
+          "first_call": {
+            "duration": 0.0
+          },
+          "subsequent_calls": {
+            "stdev": 0.0026940819979605194,
+            "stdev_percent": 85.08713856428936,
+            "duration": 0.0031662623087565104,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.0
+        }
+      }
+    },
+    "ifft2_512x512_<class 'float64'>_pow2": {
+      "description": "ifft2 on 512x512 <class 'float64'> array (power-of-2)",
+      "category": "2D_pow2",
+      "implementations": {
+        "NumPy": {
+          "name": "ifft2_512x512_<class 'float64'>_pow2",
+          "description": "ifft2 on 512x512 <class 'float64'> array (power-of-2)",
+          "implementation": "NumPy",
+          "first_call": {
+            "duration": 0.022364139556884766
+          },
+          "subsequent_calls": {
+            "stdev": 0.002678250854685146,
+            "stdev_percent": 37.89195437973139,
+            "duration": 0.007068125406901041,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 3.164083582196956
+        },
+        "SciPy": {
+          "name": "ifft2_512x512_<class 'float64'>_pow2",
+          "description": "ifft2 on 512x512 <class 'float64'> array (power-of-2)",
+          "implementation": "SciPy",
+          "first_call": {
+            "duration": 0.004209756851196289
+          },
+          "subsequent_calls": {
+            "stdev": 0.0004717049396639327,
+            "stdev_percent": 7.422116141619887,
+            "duration": 0.006355396906534831,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.6623908645056734
+        },
+        "BetterFFTW": {
+          "name": "ifft2_512x512_<class 'float64'>_pow2",
+          "description": "ifft2 on 512x512 <class 'float64'> array (power-of-2)",
+          "implementation": "BetterFFTW",
+          "first_call": {
+            "duration": 0.018593788146972656
+          },
+          "subsequent_calls": {
+            "stdev": 0.029627469038787765,
+            "stdev_percent": 176.38779389199792,
+            "duration": 0.01679677963256836,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 1.1069853003798396
+        }
+      }
+    },
+    "ifft2_512x512_<class 'complex128'>_pow2": {
+      "description": "ifft2 on 512x512 <class 'complex128'> array (power-of-2)",
+      "category": "2D_pow2",
+      "implementations": {
+        "NumPy": {
+          "name": "ifft2_512x512_<class 'complex128'>_pow2",
+          "description": "ifft2 on 512x512 <class 'complex128'> array (power-of-2)",
+          "implementation": "NumPy",
+          "first_call": {
+            "duration": 0.0
+          },
+          "subsequent_calls": {
+            "stdev": 0.0044645233754809005,
+            "stdev_percent": 78.84693247457342,
+            "duration": 0.005662266413370768,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.0
+        },
+        "SciPy": {
+          "name": "ifft2_512x512_<class 'complex128'>_pow2",
+          "description": "ifft2 on 512x512 <class 'complex128'> array (power-of-2)",
+          "implementation": "SciPy",
+          "first_call": {
+            "duration": 0.0
+          },
+          "subsequent_calls": {
+            "stdev": 0.0012449606902618542,
+            "stdev_percent": 21.27514655259993,
+            "duration": 0.005851713816324869,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.0
+        },
+        "BetterFFTW": {
+          "name": "ifft2_512x512_<class 'complex128'>_pow2",
+          "description": "ifft2 on 512x512 <class 'complex128'> array (power-of-2)",
+          "implementation": "BetterFFTW",
+          "first_call": {
+            "duration": 0.0032989978790283203
+          },
+          "subsequent_calls": {
+            "stdev": 0.0009670885640234837,
+            "stdev_percent": 41.48017581337131,
+            "duration": 0.002331447601318359,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 1.4149997954759277
+        }
+      }
+    },
+    "rfft2_512x512_<class 'float64'>_pow2": {
+      "description": "rfft2 on 512x512 <class 'float64'> array (power-of-2)",
+      "category": "2D_pow2",
+      "implementations": {
+        "NumPy": {
+          "name": "rfft2_512x512_<class 'float64'>_pow2",
+          "description": "rfft2 on 512x512 <class 'float64'> array (power-of-2)",
+          "implementation": "NumPy",
+          "first_call": {
+            "duration": 0.002008199691772461
+          },
+          "subsequent_calls": {
+            "stdev": 0.0006891183560528223,
+            "stdev_percent": 20.162759342498024,
+            "duration": 0.003417778015136719,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.5875746414420447
+        },
+        "SciPy": {
+          "name": "rfft2_512x512_<class 'float64'>_pow2",
+          "description": "rfft2 on 512x512 <class 'float64'> array (power-of-2)",
+          "implementation": "SciPy",
+          "first_call": {
+            "duration": 0.0019979476928710938
+          },
+          "subsequent_calls": {
+            "stdev": 0.00048038077565504776,
+            "stdev_percent": 35.410597695133035,
+            "duration": 0.0013566017150878906,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 1.4727592267135325
+        },
+        "BetterFFTW": {
+          "name": "rfft2_512x512_<class 'float64'>_pow2",
+          "description": "rfft2 on 512x512 <class 'float64'> array (power-of-2)",
+          "implementation": "BetterFFTW",
+          "first_call": {
+            "duration": 0.0025670528411865234
+          },
+          "subsequent_calls": {
+            "stdev": 0.031737046777700374,
+            "stdev_percent": 210.80862035957915,
+            "duration": 0.015054909388224284,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.1705126729752643
+        }
+      }
+    },
+    "irfft2_512x512_<class 'float64'>_pow2": {
+      "description": "irfft2 on 512x512 <class 'float64'> array (power-of-2)",
+      "category": "2D_pow2",
+      "implementations": {
+        "NumPy": {
+          "name": "irfft2_512x512_<class 'float64'>_pow2",
+          "description": "irfft2 on 512x512 <class 'float64'> array (power-of-2)",
+          "implementation": "NumPy",
+          "first_call": {
+            "duration": 0.0048675537109375
+          },
+          "subsequent_calls": {
+            "stdev": 0.0007017185566799204,
+            "stdev_percent": 15.584691555122937,
+            "duration": 0.004502614339192708,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 1.081050550691895
+        },
+        "SciPy": {
+          "name": "irfft2_512x512_<class 'float64'>_pow2",
+          "description": "irfft2 on 512x512 <class 'float64'> array (power-of-2)",
+          "implementation": "SciPy",
+          "first_call": {
+            "duration": 0.0019986629486083984
+          },
+          "subsequent_calls": {
+            "stdev": 0.000785017605545068,
+            "stdev_percent": 45.56604598682675,
+            "duration": 0.0017228126525878906,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 1.160116246886244
+        },
+        "BetterFFTW": {
+          "error": "irfft2() got an unexpected keyword argument 'overwrite_input'"
+        }
+      }
+    },
+    "irfft2_512x512_<class 'complex128'>_pow2": {
+      "description": "irfft2 on 512x512 <class 'complex128'> array (power-of-2)",
+      "category": "2D_pow2",
+      "implementations": {
+        "NumPy": {
+          "name": "irfft2_512x512_<class 'complex128'>_pow2",
+          "description": "irfft2 on 512x512 <class 'complex128'> array (power-of-2)",
+          "implementation": "NumPy",
+          "first_call": {
+            "duration": 0.004007577896118164
+          },
+          "subsequent_calls": {
+            "stdev": 0.00238339670779395,
+            "stdev_percent": 69.66949704099545,
+            "duration": 0.00342100461324056,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 1.1714622893542288
+        },
+        "SciPy": {
+          "name": "irfft2_512x512_<class 'complex128'>_pow2",
+          "description": "irfft2 on 512x512 <class 'complex128'> array (power-of-2)",
+          "implementation": "SciPy",
+          "first_call": {
+            "duration": 0.010607719421386719
+          },
+          "subsequent_calls": {
+            "stdev": 0.0027731485063082107,
+            "stdev_percent": 102.70032380273497,
+            "duration": 0.0027002334594726563,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 3.9284452920816557
+        },
+        "BetterFFTW": {
+          "error": "irfft2() got an unexpected keyword argument 'overwrite_input'"
+        }
+      }
+    },
+    "fft2_96x96_<class 'float64'>_nonpow2": {
+      "description": "fft2 on 96x96 <class 'float64'> array (non-power-of-2)",
+      "category": "2D_nonpow2",
+      "implementations": {
+        "NumPy": {
+          "name": "fft2_96x96_<class 'float64'>_nonpow2",
+          "description": "fft2 on 96x96 <class 'float64'> array (non-power-of-2)",
+          "implementation": "NumPy",
+          "first_call": {
+            "duration": 0.0
+          },
+          "subsequent_calls": {
+            "stdev": 0.00017106048545370876,
+            "stdev_percent": 223.60679774997894,
+            "duration": 7.650057474772136e-05,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.0
+        },
+        "SciPy": {
+          "name": "fft2_96x96_<class 'float64'>_nonpow2",
+          "description": "fft2 on 96x96 <class 'float64'> array (non-power-of-2)",
+          "implementation": "SciPy",
+          "first_call": {
+            "duration": 0.0
+          },
+          "subsequent_calls": {
+            "stdev": 0.00016409438216076738,
+            "stdev_percent": 223.60679774997894,
+            "duration": 7.338523864746094e-05,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.0
+        },
+        "BetterFFTW": {
+          "name": "fft2_96x96_<class 'float64'>_nonpow2",
+          "description": "fft2 on 96x96 <class 'float64'> array (non-power-of-2)",
+          "implementation": "BetterFFTW",
+          "first_call": {
+            "duration": 0.0009937286376953125
+          },
+          "subsequent_calls": {
+            "stdev": 0.02480794461034291,
+            "stdev_percent": 223.0738662032237,
+            "duration": 0.011120955149332683,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.08935641087941457
+        }
+      }
+    },
+    "ifft2_96x96_<class 'float64'>_nonpow2": {
+      "description": "ifft2 on 96x96 <class 'float64'> array (non-power-of-2)",
+      "category": "2D_nonpow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "name": "ifft2_96x96_<class 'float64'>_nonpow2",
+          "description": "ifft2 on 96x96 <class 'float64'> array (non-power-of-2)",
+          "implementation": "BetterFFTW",
+          "first_call": {
+            "duration": 0.0
+          },
+          "subsequent_calls": {
+            "stdev": 0.021596188829985104,
+            "stdev_percent": 219.81904688118667,
+            "duration": 0.009824530283610026,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.0
+        }
+      }
+    },
+    "rfft2_96x96_<class 'float64'>_nonpow2": {
+      "description": "rfft2 on 96x96 <class 'float64'> array (non-power-of-2)",
+      "category": "2D_nonpow2",
+      "implementations": {
+        "NumPy": {
+          "name": "rfft2_96x96_<class 'float64'>_nonpow2",
+          "description": "rfft2 on 96x96 <class 'float64'> array (non-power-of-2)",
+          "implementation": "NumPy",
+          "first_call": {
+            "duration": 0.0
+          },
+          "subsequent_calls": {
+            "stdev": 0.0001422364560119972,
+            "stdev_percent": 223.60679774997894,
+            "duration": 6.361007690429688e-05,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.0
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "name": "rfft2_96x96_<class 'float64'>_nonpow2",
+          "description": "rfft2 on 96x96 <class 'float64'> array (non-power-of-2)",
+          "implementation": "BetterFFTW",
+          "first_call": {
+            "duration": 0.0008769035339355469
+          },
+          "subsequent_calls": {
+            "stdev": 0.020332811565079326,
+            "stdev_percent": 223.60679774997894,
+            "duration": 0.009093109766642253,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.09643604404209834
+        }
+      }
+    },
+    "irfft2_96x96_<class 'float64'>_nonpow2": {
+      "description": "irfft2 on 96x96 <class 'float64'> array (non-power-of-2)",
+      "category": "2D_nonpow2",
+      "implementations": {
+        "NumPy": {
+          "error": "float division by zero"
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "error": "irfft2() got an unexpected keyword argument 'overwrite_input'"
+        }
+      }
+    },
+    "fft2_768x768_<class 'float64'>_nonpow2": {
+      "description": "fft2 on 768x768 <class 'float64'> array (non-power-of-2)",
+      "category": "2D_nonpow2",
+      "implementations": {
+        "NumPy": {
+          "name": "fft2_768x768_<class 'float64'>_nonpow2",
+          "description": "fft2 on 768x768 <class 'float64'> array (non-power-of-2)",
+          "implementation": "NumPy",
+          "first_call": {
+            "duration": 0.03134036064147949
+          },
+          "subsequent_calls": {
+            "stdev": 0.002031559856413816,
+            "stdev_percent": 9.833866348649607,
+            "duration": 0.02065881093343099,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 1.517045716835675
+        },
+        "SciPy": {
+          "name": "fft2_768x768_<class 'float64'>_nonpow2",
+          "description": "fft2 on 768x768 <class 'float64'> array (non-power-of-2)",
+          "implementation": "SciPy",
+          "first_call": {
+            "duration": 0.028357505798339844
+          },
+          "subsequent_calls": {
+            "stdev": 0.0027821947968467765,
+            "stdev_percent": 18.214134168343296,
+            "duration": 0.015274922053019207,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 1.856474664807521
+        },
+        "BetterFFTW": {
+          "name": "fft2_768x768_<class 'float64'>_nonpow2",
+          "description": "fft2 on 768x768 <class 'float64'> array (non-power-of-2)",
+          "implementation": "BetterFFTW",
+          "first_call": {
+            "duration": 0.015806913375854492
+          },
+          "subsequent_calls": {
+            "stdev": 0.06808830555726644,
+            "stdev_percent": 167.48462132040657,
+            "duration": 0.04065346717834473,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.38882079372247275
+        }
+      }
+    },
+    "ifft2_768x768_<class 'float64'>_nonpow2": {
+      "description": "ifft2 on 768x768 <class 'float64'> array (non-power-of-2)",
+      "category": "2D_nonpow2",
+      "implementations": {
+        "NumPy": {
+          "name": "ifft2_768x768_<class 'float64'>_nonpow2",
+          "description": "ifft2 on 768x768 <class 'float64'> array (non-power-of-2)",
+          "implementation": "NumPy",
+          "first_call": {
+            "duration": 0.01757073402404785
+          },
+          "subsequent_calls": {
+            "stdev": 0.0031630356070788857,
+            "stdev_percent": 18.533305159469542,
+            "duration": 0.017066764831542968,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 1.029529275025425
+        },
+        "SciPy": {
+          "name": "ifft2_768x768_<class 'float64'>_nonpow2",
+          "description": "ifft2 on 768x768 <class 'float64'> array (non-power-of-2)",
+          "implementation": "SciPy",
+          "first_call": {
+            "duration": 0.015900850296020508
+          },
+          "subsequent_calls": {
+            "stdev": 0.0028838453045828844,
+            "stdev_percent": 18.217658845455436,
+            "duration": 0.015829944610595705,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 1.0044792124779351
+        },
+        "BetterFFTW": {
+          "name": "ifft2_768x768_<class 'float64'>_nonpow2",
+          "description": "ifft2 on 768x768 <class 'float64'> array (non-power-of-2)",
+          "implementation": "BetterFFTW",
+          "first_call": {
+            "duration": 0.026287078857421875
+          },
+          "subsequent_calls": {
+            "stdev": 0.05253302872536104,
+            "stdev_percent": 157.6108854681795,
+            "duration": 0.033330837885538735,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.7886714083724569
+        }
+      }
+    },
+    "rfft2_768x768_<class 'float64'>_nonpow2": {
+      "description": "rfft2 on 768x768 <class 'float64'> array (non-power-of-2)",
+      "category": "2D_nonpow2",
+      "implementations": {
+        "NumPy": {
+          "name": "rfft2_768x768_<class 'float64'>_nonpow2",
+          "description": "rfft2 on 768x768 <class 'float64'> array (non-power-of-2)",
+          "implementation": "NumPy",
+          "first_call": {
+            "duration": 0.005776643753051758
+          },
+          "subsequent_calls": {
+            "stdev": 0.0013148421768829485,
+            "stdev_percent": 13.598441133938746,
+            "duration": 0.009669065475463867,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.597435581309333
+        },
+        "SciPy": {
+          "name": "rfft2_768x768_<class 'float64'>_nonpow2",
+          "description": "rfft2 on 768x768 <class 'float64'> array (non-power-of-2)",
+          "implementation": "SciPy",
+          "first_call": {
+            "duration": 0.0
+          },
+          "subsequent_calls": {
+            "stdev": 0.00221915417549822,
+            "stdev_percent": 47.4639503537716,
+            "duration": 0.004675451914469401,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.0
+        },
+        "BetterFFTW": {
+          "name": "rfft2_768x768_<class 'float64'>_nonpow2",
+          "description": "rfft2 on 768x768 <class 'float64'> array (non-power-of-2)",
+          "implementation": "BetterFFTW",
+          "first_call": {
+            "duration": 0.0
+          },
+          "subsequent_calls": {
+            "stdev": 0.043686342132809614,
+            "stdev_percent": 177.31113482032032,
+            "duration": 0.02463823954264323,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.0
+        }
+      }
+    },
+    "irfft2_768x768_<class 'float64'>_nonpow2": {
+      "description": "irfft2 on 768x768 <class 'float64'> array (non-power-of-2)",
+      "category": "2D_nonpow2",
+      "implementations": {
+        "NumPy": {
+          "name": "irfft2_768x768_<class 'float64'>_nonpow2",
+          "description": "irfft2 on 768x768 <class 'float64'> array (non-power-of-2)",
+          "implementation": "NumPy",
+          "first_call": {
+            "duration": 0.023027896881103516
+          },
+          "subsequent_calls": {
+            "stdev": 0.0012611982239370012,
+            "stdev_percent": 7.412066772326549,
+            "duration": 0.017015473047892252,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 1.353350377993519
+        },
+        "SciPy": {
+          "name": "irfft2_768x768_<class 'float64'>_nonpow2",
+          "description": "irfft2 on 768x768 <class 'float64'> array (non-power-of-2)",
+          "implementation": "SciPy",
+          "first_call": {
+            "duration": 0.0073397159576416016
+          },
+          "subsequent_calls": {
+            "stdev": 0.002493459989413286,
+            "stdev_percent": 34.07894764418883,
+            "duration": 0.007316716512044271,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 1.003143410785353
+        },
+        "BetterFFTW": {
+          "error": "irfft2() got an unexpected keyword argument 'overwrite_input'"
+        }
+      }
+    },
+    "fft2_256x512_<class 'float64'>_pow2": {
+      "description": "fft2 on 256x512 <class 'float64'> array (power-of-2)",
+      "category": "2D_pow2",
+      "implementations": {
+        "NumPy": {
+          "name": "fft2_256x512_<class 'float64'>_pow2",
+          "description": "fft2 on 256x512 <class 'float64'> array (power-of-2)",
+          "implementation": "NumPy",
+          "first_call": {
+            "duration": 0.015337228775024414
+          },
+          "subsequent_calls": {
+            "stdev": 0.0007545841666428373,
+            "stdev_percent": 14.11036731380615,
+            "duration": 0.005347728729248047,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 2.867989300044583
+        },
+        "SciPy": {
+          "name": "fft2_256x512_<class 'float64'>_pow2",
+          "description": "fft2 on 256x512 <class 'float64'> array (power-of-2)",
+          "implementation": "SciPy",
+          "first_call": {
+            "duration": 0.01508784294128418
+          },
+          "subsequent_calls": {
+            "stdev": 0.002685894150965822,
+            "stdev_percent": 65.19939991379955,
+            "duration": 0.004119507471720378,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 3.662535641665734
+        },
+        "BetterFFTW": {
+          "name": "fft2_256x512_<class 'float64'>_pow2",
+          "description": "fft2 on 256x512 <class 'float64'> array (power-of-2)",
+          "implementation": "BetterFFTW",
+          "first_call": {
+            "duration": 0.0077877044677734375
+          },
+          "subsequent_calls": {
+            "stdev": 0.0182179417390683,
+            "stdev_percent": 164.43703039889544,
+            "duration": 0.011078977584838867,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.7029262770989443
+        }
+      }
+    },
+    "rfft2_256x512_<class 'float64'>_pow2": {
+      "description": "rfft2 on 256x512 <class 'float64'> array (power-of-2)",
+      "category": "2D_pow2",
+      "implementations": {
+        "NumPy": {
+          "name": "rfft2_256x512_<class 'float64'>_pow2",
+          "description": "rfft2 on 256x512 <class 'float64'> array (power-of-2)",
+          "implementation": "NumPy",
+          "first_call": {
+            "duration": 0.0030660629272460938
+          },
+          "subsequent_calls": {
+            "stdev": 0.00023979343205005735,
+            "stdev_percent": 14.252175891623612,
+            "duration": 0.0016825040181477865,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 1.822321310484252
+        },
+        "SciPy": {
+          "name": "rfft2_256x512_<class 'float64'>_pow2",
+          "description": "rfft2 on 256x512 <class 'float64'> array (power-of-2)",
+          "implementation": "SciPy",
+          "first_call": {
+            "duration": 0.0008409023284912109
+          },
+          "subsequent_calls": {
+            "stdev": 0.0004250026843498744,
+            "stdev_percent": 45.973860292448954,
+            "duration": 0.0009244441986083984,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.9096301645432507
+        },
+        "BetterFFTW": {
+          "name": "rfft2_256x512_<class 'float64'>_pow2",
+          "description": "rfft2 on 256x512 <class 'float64'> array (power-of-2)",
+          "implementation": "BetterFFTW",
+          "first_call": {
+            "duration": 0.002843141555786133
+          },
+          "subsequent_calls": {
+            "stdev": 0.017611204765753643,
+            "stdev_percent": 221.23475995800806,
+            "duration": 0.00796041488647461,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.35715997172670744
+        }
+      }
+    },
+    "fft2_512x256_<class 'float64'>_pow2": {
+      "description": "fft2 on 512x256 <class 'float64'> array (power-of-2)",
+      "category": "2D_pow2",
+      "implementations": {
+        "NumPy": {
+          "name": "fft2_512x256_<class 'float64'>_pow2",
+          "description": "fft2 on 512x256 <class 'float64'> array (power-of-2)",
+          "implementation": "NumPy",
+          "first_call": {
+            "duration": 0.002005338668823242
+          },
+          "subsequent_calls": {
+            "stdev": 0.0010279985198371673,
+            "stdev_percent": 32.82099826761122,
+            "duration": 0.0031321366628011067,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.6402462231740055
+        },
+        "SciPy": {
+          "name": "fft2_512x256_<class 'float64'>_pow2",
+          "description": "fft2 on 512x256 <class 'float64'> array (power-of-2)",
+          "implementation": "SciPy",
+          "first_call": {
+            "duration": 0.0
+          },
+          "subsequent_calls": {
+            "stdev": 0.002918936322458632,
+            "stdev_percent": 136.9452605484735,
+            "duration": 0.0021314620971679688,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.0
+        },
+        "BetterFFTW": {
+          "name": "fft2_512x256_<class 'float64'>_pow2",
+          "description": "fft2 on 512x256 <class 'float64'> array (power-of-2)",
+          "implementation": "BetterFFTW",
+          "first_call": {
+            "duration": 0.005908966064453125
+          },
+          "subsequent_calls": {
+            "stdev": 0.01852630864253633,
+            "stdev_percent": 193.21872297628485,
+            "duration": 0.009588257471720377,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.6162711088934605
+        }
+      }
+    },
+    "rfft2_512x256_<class 'float64'>_pow2": {
+      "description": "rfft2 on 512x256 <class 'float64'> array (power-of-2)",
+      "category": "2D_pow2",
+      "implementations": {
+        "NumPy": {
+          "name": "rfft2_512x256_<class 'float64'>_pow2",
+          "description": "rfft2 on 512x256 <class 'float64'> array (power-of-2)",
+          "implementation": "NumPy",
+          "first_call": {
+            "duration": 0.0
+          },
+          "subsequent_calls": {
+            "stdev": 0.002364707737206952,
+            "stdev_percent": 223.60679774997894,
+            "duration": 0.0010575294494628907,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.0
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "name": "rfft2_512x256_<class 'float64'>_pow2",
+          "description": "rfft2 on 512x256 <class 'float64'> array (power-of-2)",
+          "implementation": "BetterFFTW",
+          "first_call": {
+            "duration": 0.0
+          },
+          "subsequent_calls": {
+            "stdev": 0.014172590813507618,
+            "stdev_percent": 186.67340405851743,
+            "duration": 0.007592185338338216,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.0
+        }
+      }
+    },
+    "fftn_64x64x64_<class 'float64'>_pow2": {
+      "description": "fftn on 64x64x64 <class 'float64'> array (power-of-2)",
+      "category": "3D_pow2",
+      "implementations": {
+        "NumPy": {
+          "name": "fftn_64x64x64_<class 'float64'>_pow2",
+          "description": "fftn on 64x64x64 <class 'float64'> array (power-of-2)",
+          "implementation": "NumPy",
+          "first_call": {
+            "duration": 0.0019268989562988281
+          },
+          "subsequent_calls": {
+            "stdev": 0.0009617986775478234,
+            "stdev_percent": 12.580671040989468,
+            "duration": 0.007645050684611002,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.2520452820774037
+        },
+        "SciPy": {
+          "name": "fftn_64x64x64_<class 'float64'>_pow2",
+          "description": "fftn on 64x64x64 <class 'float64'> array (power-of-2)",
+          "implementation": "SciPy",
+          "first_call": {
+            "duration": 0.008012533187866211
+          },
+          "subsequent_calls": {
+            "stdev": 0.00024108717141472168,
+            "stdev_percent": 4.540265901729191,
+            "duration": 0.0053099791208903,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 1.508957569408067
+        },
+        "BetterFFTW": {
+          "name": "fftn_64x64x64_<class 'float64'>_pow2",
+          "description": "fftn on 64x64x64 <class 'float64'> array (power-of-2)",
+          "implementation": "BetterFFTW",
+          "first_call": {
+            "duration": 0.01445913314819336
+          },
+          "subsequent_calls": {
+            "stdev": 0.016982843701226033,
+            "stdev_percent": 199.55999099971743,
+            "duration": 0.008510144551595053,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 1.6990467154266244
+        }
+      }
+    },
+    "ifftn_64x64x64_<class 'float64'>_pow2": {
+      "description": "ifftn on 64x64x64 <class 'float64'> array (power-of-2)",
+      "category": "3D_pow2",
+      "implementations": {
+        "NumPy": {
+          "name": "ifftn_64x64x64_<class 'float64'>_pow2",
+          "description": "ifftn on 64x64x64 <class 'float64'> array (power-of-2)",
+          "implementation": "NumPy",
+          "first_call": {
+            "duration": 0.006039857864379883
+          },
+          "subsequent_calls": {
+            "stdev": 0.0033404920134861345,
+            "stdev_percent": 41.58466798287155,
+            "duration": 0.008032989501953126,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.7518817076645454
+        },
+        "SciPy": {
+          "name": "ifftn_64x64x64_<class 'float64'>_pow2",
+          "description": "ifftn on 64x64x64 <class 'float64'> array (power-of-2)",
+          "implementation": "SciPy",
+          "first_call": {
+            "duration": 0.0
+          },
+          "subsequent_calls": {
+            "stdev": 0.002078482616144501,
+            "stdev_percent": 29.804946702704587,
+            "duration": 0.006973616282145182,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.0
+        },
+        "BetterFFTW": {
+          "name": "ifftn_64x64x64_<class 'float64'>_pow2",
+          "description": "ifftn on 64x64x64 <class 'float64'> array (power-of-2)",
+          "implementation": "BetterFFTW",
+          "first_call": {
+            "duration": 0.003515005111694336
+          },
+          "subsequent_calls": {
+            "stdev": 0.01418886932998272,
+            "stdev_percent": 180.26422543837114,
+            "duration": 0.007871150970458984,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.44656812261464834
+        }
+      }
+    },
+    "rfftn_64x64x64_<class 'float64'>_pow2": {
+      "description": "rfftn on 64x64x64 <class 'float64'> array (power-of-2)",
+      "category": "3D_pow2",
+      "implementations": {
+        "NumPy": {
+          "name": "rfftn_64x64x64_<class 'float64'>_pow2",
+          "description": "rfftn on 64x64x64 <class 'float64'> array (power-of-2)",
+          "implementation": "NumPy",
+          "first_call": {
+            "duration": 0.0
+          },
+          "subsequent_calls": {
+            "stdev": 0.0015376753590351131,
+            "stdev_percent": 32.13555780435291,
+            "duration": 0.004784965515136718,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.0
+        },
+        "SciPy": {
+          "name": "rfftn_64x64x64_<class 'float64'>_pow2",
+          "description": "rfftn on 64x64x64 <class 'float64'> array (power-of-2)",
+          "implementation": "SciPy",
+          "first_call": {
+            "duration": 0.0
+          },
+          "subsequent_calls": {
+            "stdev": 0.0020898530912473014,
+            "stdev_percent": 76.42891305132989,
+            "duration": 0.002734375,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.0
+        },
+        "BetterFFTW": {
+          "name": "rfftn_64x64x64_<class 'float64'>_pow2",
+          "description": "rfftn on 64x64x64 <class 'float64'> array (power-of-2)",
+          "implementation": "BetterFFTW",
+          "first_call": {
+            "duration": 0.0
+          },
+          "subsequent_calls": {
+            "stdev": 0.016545241688945764,
+            "stdev_percent": 223.60679774997897,
+            "duration": 0.007399257024129231,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.0
+        }
+      }
+    },
+    "irfftn_64x64x64_<class 'float64'>_pow2": {
+      "description": "irfftn on 64x64x64 <class 'float64'> array (power-of-2)",
+      "category": "3D_pow2",
+      "implementations": {
+        "NumPy": {
+          "name": "irfftn_64x64x64_<class 'float64'>_pow2",
+          "description": "irfftn on 64x64x64 <class 'float64'> array (power-of-2)",
+          "implementation": "NumPy",
+          "first_call": {
+            "duration": 0.015824079513549805
+          },
+          "subsequent_calls": {
+            "stdev": 0.0007614864862138639,
+            "stdev_percent": 14.315215100918016,
+            "duration": 0.005319420496622721,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 2.9747750762693888
+        },
+        "SciPy": {
+          "name": "irfftn_64x64x64_<class 'float64'>_pow2",
+          "description": "irfftn on 64x64x64 <class 'float64'> array (power-of-2)",
+          "implementation": "SciPy",
+          "first_call": {
+            "duration": 0.0
+          },
+          "subsequent_calls": {
+            "stdev": 0.0030125352615937235,
+            "stdev_percent": 110.25347019164775,
+            "duration": 0.0027323722839355472,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.0
+        },
+        "BetterFFTW": {
+          "error": "irfftn() got an unexpected keyword argument 'overwrite_input'"
+        }
+      }
+    },
+    "fftn_48x48x48_<class 'float64'>_nonpow2": {
+      "description": "fftn on 48x48x48 <class 'float64'> array (non-power-of-2)",
+      "category": "3D_nonpow2",
+      "implementations": {
+        "NumPy": {
+          "name": "fftn_48x48x48_<class 'float64'>_nonpow2",
+          "description": "fftn on 48x48x48 <class 'float64'> array (non-power-of-2)",
+          "implementation": "NumPy",
+          "first_call": {
+            "duration": 0.0
+          },
+          "subsequent_calls": {
+            "stdev": 0.001977258143809456,
+            "stdev_percent": 61.78090632626551,
+            "duration": 0.0032004356384277345,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.0
+        },
+        "SciPy": {
+          "name": "fftn_48x48x48_<class 'float64'>_nonpow2",
+          "description": "fftn on 48x48x48 <class 'float64'> array (non-power-of-2)",
+          "implementation": "SciPy",
+          "first_call": {
+            "duration": 0.0
+          },
+          "subsequent_calls": {
+            "stdev": 0.0022261751397224757,
+            "stdev_percent": 104.19958441723192,
+            "duration": 0.0021364529927571613,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.0
+        },
+        "BetterFFTW": {
+          "name": "fftn_48x48x48_<class 'float64'>_nonpow2",
+          "description": "fftn on 48x48x48 <class 'float64'> array (non-power-of-2)",
+          "implementation": "BetterFFTW",
+          "first_call": {
+            "duration": 0.015981435775756836
+          },
+          "subsequent_calls": {
+            "stdev": 0.0446335297823554,
+            "stdev_percent": 223.60679774997894,
+            "duration": 0.019960721333821617,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.800644200601997
+        }
+      }
+    },
+    "ifftn_48x48x48_<class 'float64'>_nonpow2": {
+      "description": "ifftn on 48x48x48 <class 'float64'> array (non-power-of-2)",
+      "category": "3D_nonpow2",
+      "implementations": {
+        "NumPy": {
+          "name": "ifftn_48x48x48_<class 'float64'>_nonpow2",
+          "description": "ifftn on 48x48x48 <class 'float64'> array (non-power-of-2)",
+          "implementation": "NumPy",
+          "first_call": {
+            "duration": 0.0022017955780029297
+          },
+          "subsequent_calls": {
+            "stdev": 0.002379978326729206,
+            "stdev_percent": 70.67185649759018,
+            "duration": 0.0033676465352376304,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.6538083955558491
+        },
+        "SciPy": {
+          "name": "ifftn_48x48x48_<class 'float64'>_nonpow2",
+          "description": "ifftn on 48x48x48 <class 'float64'> array (non-power-of-2)",
+          "implementation": "SciPy",
+          "first_call": {
+            "duration": 0.0
+          },
+          "subsequent_calls": {
+            "stdev": 0.002357492844510691,
+            "stdev_percent": 223.60679774997897,
+            "duration": 0.0010543028513590495,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.0
+        },
+        "BetterFFTW": {
+          "name": "ifftn_48x48x48_<class 'float64'>_nonpow2",
+          "description": "ifftn on 48x48x48 <class 'float64'> array (non-power-of-2)",
+          "implementation": "BetterFFTW",
+          "first_call": {
+            "duration": 0.0
+          },
+          "subsequent_calls": {
+            "stdev": 0.015588737313101893,
+            "stdev_percent": 163.7657271350954,
+            "duration": 0.009518925348917642,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.0
+        }
+      }
+    },
+    "rfftn_48x48x48_<class 'float64'>_nonpow2": {
+      "description": "rfftn on 48x48x48 <class 'float64'> array (non-power-of-2)",
+      "category": "3D_nonpow2",
+      "implementations": {
+        "NumPy": {
+          "name": "rfftn_48x48x48_<class 'float64'>_nonpow2",
+          "description": "rfftn on 48x48x48 <class 'float64'> array (non-power-of-2)",
+          "implementation": "NumPy",
+          "first_call": {
+            "duration": 0.0
+          },
+          "subsequent_calls": {
+            "stdev": 0.0023758321776696594,
+            "stdev_percent": 223.60679774997897,
+            "duration": 0.0010625044504801431,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.0
+        },
+        "SciPy": {
+          "error": "float division by zero"
+        },
+        "BetterFFTW": {
+          "name": "rfftn_48x48x48_<class 'float64'>_nonpow2",
+          "description": "rfftn on 48x48x48 <class 'float64'> array (non-power-of-2)",
+          "implementation": "BetterFFTW",
+          "first_call": {
+            "duration": 0.015606880187988281
+          },
+          "subsequent_calls": {
+            "stdev": 0.0168956878571831,
+            "stdev_percent": 216.34579339434063,
+            "duration": 0.007809575398763021,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 1.9984287737922726
+        }
+      }
+    },
+    "irfftn_48x48x48_<class 'float64'>_nonpow2": {
+      "description": "irfftn on 48x48x48 <class 'float64'> array (non-power-of-2)",
+      "category": "3D_nonpow2",
+      "implementations": {
+        "NumPy": {
+          "name": "irfftn_48x48x48_<class 'float64'>_nonpow2",
+          "description": "irfftn on 48x48x48 <class 'float64'> array (non-power-of-2)",
+          "implementation": "NumPy",
+          "first_call": {
+            "duration": 0.0020177364349365234
+          },
+          "subsequent_calls": {
+            "stdev": 0.0004033787406230238,
+            "stdev_percent": 17.93754398414757,
+            "duration": 0.0022487958272298177,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.8972519472441725
+        },
+        "SciPy": {
+          "name": "irfftn_48x48x48_<class 'float64'>_nonpow2",
+          "description": "irfftn on 48x48x48 <class 'float64'> array (non-power-of-2)",
+          "implementation": "SciPy",
+          "first_call": {
+            "duration": 0.0
+          },
+          "subsequent_calls": {
+            "stdev": 0.00020694197804316445,
+            "stdev_percent": 24.42484475023985,
+            "duration": 0.0008472601572672527,
+            "repeats": 3
+          },
+          "memory_usage": null,
+          "overhead_ratio": 0.0
+        }
+      }
+    }
+  },
+  "end_time": "2025-03-21 10:45:16",
+  "elapsed_time": 15.083056211471558
+}

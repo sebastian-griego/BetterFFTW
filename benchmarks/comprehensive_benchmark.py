@@ -45,6 +45,10 @@ from pathlib import Path
 # Add the src directory to the Python path if needed
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
 
+# Initialize basic configuration
+MIN_RUNTIME = 0.1       # Minimum runtime for a single test in seconds
+REPEAT_MEASURES = 5     # Number of times to measure each test for statistical significance
+
 # To compare with SciPy's FFT implementation
 try:
     import scipy.fft as scipy_fft
@@ -56,8 +60,6 @@ except ImportError:
 RUNTIME_LIMIT = 20 * 60  # Maximum runtime for the entire benchmark in seconds (20 minutes by default)
 REPEAT_SHORT_TEST = 5   # Number of repetitions for short tests
 REPEAT_LONG_TEST = 3    # Number of repetitions for longer tests
-REPEAT_MEASURES = 5     # Number of times to measure each test for statistical significance
-MIN_RUNTIME = 0.1       # Minimum runtime for a single test in seconds
 
 # ============================================================================================
 # Utility Functions
@@ -144,19 +146,23 @@ def adaptive_repeat_count(func, *args, duration_target=0.5, max_repeats=1000, **
     Returns:
         Number of repeats needed to reach target duration
     """
-    # Start with a single call to estimate duration
-    start = time.time()
-    func(*args, **kwargs)
-    single_duration = time.time() - start
-    
-    # Estimate repeats needed
-    if single_duration < 1e-6:  # Avoid division by zero
-        repeats = max_repeats
-    else:
+    try:
+        # Start with a single call to estimate duration
+        start = time.time()
+        func(*args, **kwargs)
+        single_duration = time.time() - start
+        
+        # Ensure a minimum duration to avoid division by zero
+        single_duration = max(single_duration, 1e-6)  # 1 microsecond minimum
+        
+        # Estimate repeats needed
         repeats = int(duration_target / single_duration)
         repeats = max(1, min(repeats, max_repeats))
-    
-    return repeats
+        
+        return repeats
+    except Exception as e:
+        print(f"Error in adaptive_repeat_count: {e}")
+        return 5  # Fall back to a default number of repeats
 
 
 # ============================================================================================
@@ -476,42 +482,50 @@ class FFTBenchmark(BenchmarkTest):
     
     def _create_input_array(self):
         """Create an appropriate input array based on transform type."""
-        # For real transforms, input must be real
-        if not self.is_inverse and self.is_real:
-            if issubclass(self.dtype, np.complexfloating):
-                dtype = np.float64 if self.dtype == np.complex128 else np.float32
+        try:
+            # For real transforms, input must be real
+            if not self.is_inverse and self.is_real:
+                if issubclass(self.dtype, np.complexfloating):
+                    dtype = np.float64 if self.dtype == np.complex128 else np.float32
+                else:
+                    dtype = self.dtype
+                return np.random.random(self.shape).astype(dtype)
+            
+            # For inverse real transforms, input has special shape and must be complex
+            elif self.is_inverse and self.is_real:
+                # For irfft, shape of input is different
+                if self.ndim == 1:
+                    shape = list(self.shape)
+                    shape[-1] = shape[-1] // 2 + 1
+                    if issubclass(self.dtype, np.complexfloating):
+                        dtype = self.dtype
+                    else:
+                        dtype = np.complex128 if self.dtype == np.float64 else np.complex64
+                    return np.random.random(shape).astype(dtype) + 1j * np.random.random(shape).astype(dtype)
+                else:
+                    # For irfft2/irfftn, shape of last dimension is halved+1
+                    shape = list(self.shape)
+                    shape[-1] = shape[-1] // 2 + 1
+                    if issubclass(self.dtype, np.complexfloating):
+                        dtype = self.dtype
+                    else:
+                        dtype = np.complex128 if self.dtype == np.float64 else np.complex64
+                    return np.random.random(shape).astype(dtype) + 1j * np.random.random(shape).astype(dtype)
+            
+            # For complex transforms, input can be complex
             else:
-                dtype = self.dtype
-            return np.random.random(self.shape).astype(dtype)
-        
-        # For inverse real transforms, input has special shape and must be complex
-        elif self.is_inverse and self.is_real:
-            # For irfft, shape of input is different
-            if self.ndim == 1:
-                shape = list(self.shape)
-                shape[-1] = shape[-1] // 2 + 1
                 if issubclass(self.dtype, np.complexfloating):
                     dtype = self.dtype
                 else:
                     dtype = np.complex128 if self.dtype == np.float64 else np.complex64
-                return np.random.random(shape).astype(dtype) + 1j * np.random.random(shape).astype(dtype)
+                return np.random.random(self.shape).astype(dtype) + 1j * np.random.random(self.shape).astype(dtype)
+        except Exception as e:
+            print(f"Error creating input array: {str(e)}")
+            # Fallback to simple array creation
+            if self.is_real and not self.is_inverse:
+                return np.random.random(self.shape).astype(np.float64)
             else:
-                # For irfft2/irfftn, shape of last dimension is halved+1
-                shape = list(self.shape)
-                shape[-1] = shape[-1] // 2 + 1
-                if issubclass(self.dtype, np.complexfloating):
-                    dtype = self.dtype
-                else:
-                    dtype = np.complex128 if self.dtype == np.float64 else np.complex64
-                return np.random.random(shape).astype(dtype) + 1j * np.random.random(shape).astype(dtype)
-        
-        # For complex transforms, input can be complex
-        else:
-            if issubclass(self.dtype, np.complexfloating):
-                dtype = self.dtype
-            else:
-                dtype = np.complex128 if self.dtype == np.float64 else np.complex64
-            return np.random.random(self.shape).astype(dtype) + 1j * np.random.random(self.shape).astype(dtype)
+                return np.random.random(self.shape).astype(np.complex128) + 1j * np.random.random(self.shape).astype(np.complex128)
     
     def run(self, implementation, quick_mode=False):
         """
@@ -524,81 +538,101 @@ class FFTBenchmark(BenchmarkTest):
         Returns:
             Dictionary with benchmark results
         """
-        # Create the input array
-        input_array = self._create_input_array()
-        
-        # Get the transform function
-        transform_func = getattr(implementation, self.transform_type)
-        
-        # Prepare results
-        results = {
-            'name': self.name,
-            'description': self.get_description(),
-            'implementation': implementation.name,
-            'first_call': {},
-            'subsequent_calls': {},
-            'memory_usage': None,
-        }
-        
-        # Set up the implementation
-        implementation.setup()
-        
         try:
-            # Measure first call (includes planning)
-            start_time = time.time()
-            output = transform_func(input_array.copy())
-            first_call_duration = time.time() - start_time
+            # Prepare results
+            results = {
+                'name': self.name,
+                'description': self.get_description(),
+                'implementation': implementation.name,
+                'first_call': {},
+                'subsequent_calls': {},
+                'memory_usage': None,
+            }
             
-            # Force computation by accessing a value
-            _ = output[0]
+            # Create the input array
+            input_array = self._create_input_array()
             
-            results['first_call']['duration'] = first_call_duration
+            # Get the transform function
+            transform_func = getattr(implementation, self.transform_type)
             
-            # Determine how many times to repeat for meaningful timing
-            repeats = adaptive_repeat_count(
-                transform_func, input_array.copy(), 
-                duration_target=MIN_RUNTIME
-            )
+            # Set up the implementation
+            implementation.setup()
             
-            # Reduce repeats in quick mode
-            if quick_mode:
-                repeats = min(repeats, 3)
-            
-            # Measure subsequent calls
-            durations = []
-            for i in range(REPEAT_MEASURES):
-                # Run multiple times and measure
+            try:
+                # Measure first call (includes planning)
                 start_time = time.time()
-                for _ in range(repeats):
-                    output = transform_func(input_array.copy())
-                    # Force computation by accessing a value
-                    _ = output[0]
-                duration = (time.time() - start_time) / repeats
-                durations.append(duration)
+                output = transform_func(input_array.copy())
+                first_call_duration = time.time() - start_time
+                
+                # Force computation by accessing a value
+                _ = output[0]
+                
+                results['first_call']['duration'] = first_call_duration
+                
+                # Determine how many times to repeat for meaningful timing
+                repeats = adaptive_repeat_count(
+                    transform_func, input_array.copy(), 
+                    duration_target=MIN_RUNTIME
+                )
+                
+                # Reduce repeats in quick mode
+                if quick_mode:
+                    repeats = min(repeats, 3)
+                
+                # Measure subsequent calls
+                durations = []
+                for i in range(REPEAT_MEASURES):
+                    # Run multiple times and measure
+                    start_time = time.time()
+                    for _ in range(repeats):
+                        output = transform_func(input_array.copy())
+                        # Force computation by accessing a value
+                        _ = output[0]
+                    duration = (time.time() - start_time) / repeats
+                    durations.append(duration)
+                
+                # Calculate statistics
+                mean_duration = statistics.mean(durations)
+                if len(durations) > 1:
+                    stdev_duration = statistics.stdev(durations)
+                    results['subsequent_calls']['stdev'] = stdev_duration
+                    results['subsequent_calls']['stdev_percent'] = (stdev_duration / mean_duration) * 100
+                
+                results['subsequent_calls']['duration'] = mean_duration
+                results['subsequent_calls']['repeats'] = repeats
+                
+                # Calculate overhead ratio (with protection against division by zero)
+                if mean_duration > 0:
+                    results['overhead_ratio'] = first_call_duration / mean_duration
+                else:
+                    results['overhead_ratio'] = float('inf')
+                
+                # Measure memory usage (only if not in quick mode)
+                if not quick_mode:
+                    _, memory_usage = measure_memory_usage(transform_func, input_array.copy())
+                    results['memory_usage'] = memory_usage
+                
+            except Exception as e:
+                import traceback
+                print(f"Error in benchmark execution: {str(e)}")
+                print(traceback.format_exc())
+                results['error'] = str(e)
+                
+            finally:
+                # Tear down the implementation
+                implementation.teardown()
             
-            # Calculate statistics
-            mean_duration = statistics.mean(durations)
-            if len(durations) > 1:
-                stdev_duration = statistics.stdev(durations)
-                results['subsequent_calls']['stdev'] = stdev_duration
-                results['subsequent_calls']['stdev_percent'] = (stdev_duration / mean_duration) * 100
+            return results
             
-            results['subsequent_calls']['duration'] = mean_duration
-            results['subsequent_calls']['repeats'] = repeats
-            
-            # Calculate overhead ratio
-            results['overhead_ratio'] = first_call_duration / mean_duration
-            
-            # Measure memory usage (only if not in quick mode)
-            if not quick_mode:
-                _, memory_usage = measure_memory_usage(transform_func, input_array.copy())
-                results['memory_usage'] = memory_usage
-            
-        finally:
-            # Tear down the implementation
-            implementation.teardown()
-        
-        return results
+        except Exception as e:
+            import traceback
+            print(f"Error in benchmark setup: {str(e)}")
+            print(traceback.format_exc())
+            return {
+                'name': self.name,
+                'implementation': implementation.name,
+                'error': str(e)
+            }
 
 
 class MixedWorkloadBenchmark(BenchmarkTest):
