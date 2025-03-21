@@ -1,0 +1,7 @@
+numpy
+scipy
+pyfftw
+psutil
+
+[dev]
+matplotlib

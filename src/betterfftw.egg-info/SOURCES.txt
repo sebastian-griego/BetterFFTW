@@ -1,0 +1,13 @@
+LICENSE
+README.md
+pyproject.toml
+src/betterfftw/__init__.py
+src/betterfftw/core.py
+src/betterfftw/interface.py
+src/betterfftw/planning.py
+src/betterfftw.egg-info/PKG-INFO
+src/betterfftw.egg-info/SOURCES.txt
+src/betterfftw.egg-info/dependency_links.txt
+src/betterfftw.egg-info/requires.txt
+src/betterfftw.egg-info/top_level.txt
+tests/test_basic.py

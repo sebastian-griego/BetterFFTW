@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "betterfftw"
+version = "0.1.0"
+description = "High-performance, user-friendly wrapper for FFTW in Python"
+readme = "README.md"
+requires-python = ">=3.7"
+dependencies = [
+    "numpy",
+    "scipy",
+    "pyfftw",
+    "psutil",  # for the planning module
+]
+
+[project.optional-dependencies]
+dev = [
+    "matplotlib",  # for examples
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+packages = ["betterfftw"]
