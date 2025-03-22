@@ -1414,17 +1414,18 @@ if __name__ == "__main__":
         
         if "Basic Performance" in name or "Real FFT Performance" in name or "3D FFT Performance" in name:
             results[name] = run_benchmark_suite(benchmark)
-        elif name == "Threading Scaling":
+        elif "Threading Scaling" in name:
             results[name] = run_threading_scaling_benchmark(benchmark)
-        elif name == "Non-Power-of-Two Performance":
+        elif "Non-Power-of-Two Performance" in name:
             results[name] = run_non_power_of_two_benchmark(benchmark)
-        elif name == "Repeated Transform Performance":
+        elif "Repeated Transform Performance" in name:
             results[name] = run_repeated_transform_benchmark(benchmark)
-        elif name == "Planning Strategy Comparison":
+        elif "Planning Strategy Comparison" in name:
             results[name] = run_planning_strategy_benchmark(benchmark)
-        elif name == "Data Type Comparison":
+        elif "Data Type Comparison" in name:
             results[name] = run_dtype_benchmark(benchmark)
-    
+        else:
+            print(f"WARNING: No matching benchmark function for '{name}'")
     # Create plots for each benchmark
     for name, df in results.items():
         if "Basic Performance" in name:
