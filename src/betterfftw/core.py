@@ -153,8 +153,27 @@ class SmartFFTW:
         if planner is None:
             planner = DEFAULT_PLANNER
         
-        # Check the function name to determine correct parameter names
+        # Check the function name to determine correct parameter names and arguments
         func_name = builder_func.__name__ if hasattr(builder_func, '__name__') else str(builder_func)
+        
+        # Determine if this is an inverse real transform (irfft, irfft2, irfftn)
+        is_inv_real = func_name in ['irfft', 'irfft2', 'irfftn']
+        
+        # Common keyword arguments - some functions may not support all of these
+        common_kwargs = {
+            'threads': threads,
+            'planner_effort': planner,
+            'auto_align_input': AUTO_ALIGN,
+            'auto_contiguous': True,
+        }
+        
+        # Only add overwrite_input for functions that support it
+        # irfft-family functions don't support overwrite_input in PyFFTW
+        if not is_inv_real:
+            common_kwargs['overwrite_input'] = False
+        
+        # Combine with any additional keyword arguments
+        all_kwargs = {**common_kwargs, **kwargs}
         
         # Different parameter names for different FFT types
         if 'fft2' in func_name or 'fftn' in func_name:
@@ -163,12 +182,7 @@ class SmartFFTW:
                 array,
                 s=n,  # 's' is used instead of 'n'
                 axes=axis,  # 'axes' is used instead of 'axis'
-                overwrite_input=False,
-                threads=threads,
-                planner_effort=planner,
-                auto_align_input=AUTO_ALIGN,
-                auto_contiguous=True,
-                **kwargs
+                **all_kwargs
             )
         else:
             # Regular 1D transforms
@@ -176,12 +190,7 @@ class SmartFFTW:
                 array,
                 n=n,
                 axis=axis,
-                overwrite_input=False,
-                threads=threads,
-                planner_effort=planner,
-                auto_align_input=AUTO_ALIGN,
-                auto_contiguous=True,
-                **kwargs
+                **all_kwargs
             )
         
         return fft_obj
@@ -210,7 +219,6 @@ class SmartFFTW:
             if not _background_optimizing:
                 _background_optimizing = True
                 threading.Thread(target=cls._background_optimize, daemon=True).start()
-    
     @classmethod
     def _background_optimize(cls):
         """Background thread to optimize plans."""
@@ -308,6 +316,14 @@ class SmartFFTW:
             # Execute the transform
             result = fft_obj(array)
             
+            # PyFFTW doesn't handle normalization exactly like NumPy, so we need to handle it manually
+            if norm == 'ortho':
+                # Calculate the normalization factor correctly
+                if n is None:
+                    n = array.shape[axis]
+                scale = 1.0 / np.sqrt(n)
+                result *= scale
+            
             return result
     
     @classmethod
@@ -363,6 +379,14 @@ class SmartFFTW:
             
             # Execute the transform
             result = ifft_obj(array)
+            
+            # PyFFTW doesn't handle normalization exactly like NumPy, so we need to handle it manually
+            if norm == 'ortho':
+                # Calculate the normalization factor correctly
+                if n is None:
+                    n = array.shape[axis]
+                scale = 1.0 / np.sqrt(n)
+                result *= scale
             
             return result
     
@@ -420,6 +444,14 @@ class SmartFFTW:
             # Execute the transform
             result = rfft_obj(array)
             
+            # PyFFTW doesn't handle normalization exactly like NumPy, so we need to handle it manually
+            if norm == 'ortho':
+                # Calculate the normalization factor correctly
+                if n is None:
+                    n = array.shape[axis]
+                scale = 1.0 / np.sqrt(n)
+                result *= scale
+            
             return result
     
     @classmethod
@@ -476,6 +508,14 @@ class SmartFFTW:
             # Execute the transform
             result = irfft_obj(array)
             
+            # PyFFTW doesn't handle normalization exactly like NumPy, so we need to handle it manually
+            if norm == 'ortho':
+                # Calculate the normalization factor correctly
+                if n is None:
+                    n = array.shape[axis]
+                scale = 1.0 / np.sqrt(n)
+                result *= scale
+
             return result
     
     @classmethod
@@ -528,9 +568,21 @@ class SmartFFTW:
                 # cache the plan
                 cls._plan_cache[key] = fft2_obj
                 cls._plan_quality[key] = planner
-            
+        
             # Execute the transform
             result = fft2_obj(array)
+            
+            # PyFFTW doesn't handle normalization exactly like NumPy, so we need to handle it manually
+            if norm == 'ortho':
+                # Calculate the normalization factor correctly
+                if s is None:
+                    # If s is None, use the array shape along the transformed axes
+                    dims = [array.shape[ax] for ax in axes]
+                else:
+                    # Otherwise use the specified shape
+                    dims = s
+                scale = 1.0 / np.sqrt(np.prod(dims))
+                result *= scale
             
             return result
     
@@ -584,9 +636,21 @@ class SmartFFTW:
                 # cache the plan
                 cls._plan_cache[key] = ifft2_obj
                 cls._plan_quality[key] = planner
-            
+        
             # Execute the transform
             result = ifft2_obj(array)
+            
+            # PyFFTW doesn't handle normalization exactly like NumPy, so we need to handle it manually
+            if norm == 'ortho':
+                # Calculate the normalization factor correctly
+                if s is None:
+                    # If s is None, use the array shape along the transformed axes
+                    dims = [array.shape[ax] for ax in axes]
+                else:
+                    # Otherwise use the specified shape
+                    dims = s
+                scale = 1.0 / np.sqrt(np.prod(dims))
+                result *= scale
             
             return result
     
@@ -640,9 +704,21 @@ class SmartFFTW:
                 # cache the plan
                 cls._plan_cache[key] = rfft2_obj
                 cls._plan_quality[key] = planner
-            
+        
             # Execute the transform
             result = rfft2_obj(array)
+            
+            # PyFFTW doesn't handle normalization exactly like NumPy, so we need to handle it manually
+            if norm == 'ortho':
+                # Calculate the normalization factor correctly
+                if s is None:
+                    # If s is None, use the array shape along the transformed axes
+                    dims = [array.shape[ax] for ax in axes]
+                else:
+                    # Otherwise use the specified shape
+                    dims = s
+                scale = 1.0 / np.sqrt(np.prod(dims))
+                result *= scale
             
             return result
     
@@ -696,9 +772,21 @@ class SmartFFTW:
                 # cache the plan
                 cls._plan_cache[key] = irfft2_obj
                 cls._plan_quality[key] = planner
-            
+        
             # Execute the transform
             result = irfft2_obj(array)
+            
+            # PyFFTW doesn't handle normalization exactly like NumPy, so we need to handle it manually
+            if norm == 'ortho':
+                # Calculate the normalization factor correctly
+                if s is None:
+                    # If s is None, use the array shape along the transformed axes
+                    dims = [array.shape[ax] for ax in axes]
+                else:
+                    # Otherwise use the specified shape
+                    dims = s
+                scale = 1.0 / np.sqrt(np.prod(dims))
+                result *= scale
             
             return result
     
@@ -752,9 +840,26 @@ class SmartFFTW:
                 # cache the plan
                 cls._plan_cache[key] = fftn_obj
                 cls._plan_quality[key] = planner
-            
+        
             # Execute the transform
             result = fftn_obj(array)
+            
+            # PyFFTW doesn't handle normalization exactly like NumPy, so we need to handle it manually
+            if norm == 'ortho':
+                # Calculate the normalization factor correctly
+                if s is None:
+                    # If s is None, use the array shape along the transformed axes
+                    if axes is None:
+                        # If axes is None, all dimensions are transformed
+                        dims = array.shape
+                    else:
+                        # Otherwise use the specified axes
+                        dims = [array.shape[ax] for ax in axes]
+                else:
+                    # Otherwise use the specified shape
+                    dims = s
+                scale = 1.0 / np.sqrt(np.prod(dims))
+                result *= scale
             
             return result
     
@@ -808,9 +913,26 @@ class SmartFFTW:
                 # cache the plan
                 cls._plan_cache[key] = ifftn_obj
                 cls._plan_quality[key] = planner
-            
+        
             # Execute the transform
             result = ifftn_obj(array)
+            
+            # PyFFTW doesn't handle normalization exactly like NumPy, so we need to handle it manually
+            if norm == 'ortho':
+                # Calculate the normalization factor correctly
+                if s is None:
+                    # If s is None, use the array shape along the transformed axes
+                    if axes is None:
+                        # If axes is None, all dimensions are transformed
+                        dims = array.shape
+                    else:
+                        # Otherwise use the specified axes
+                        dims = [array.shape[ax] for ax in axes]
+                else:
+                    # Otherwise use the specified shape
+                    dims = s
+                scale = 1.0 / np.sqrt(np.prod(dims))
+                result *= scale
             
             return result
     
@@ -864,9 +986,26 @@ class SmartFFTW:
                 # cache the plan
                 cls._plan_cache[key] = rfftn_obj
                 cls._plan_quality[key] = planner
-            
+        
             # Execute the transform
             result = rfftn_obj(array)
+            
+            # PyFFTW doesn't handle normalization exactly like NumPy, so we need to handle it manually
+            if norm == 'ortho':
+                # Calculate the normalization factor correctly
+                if s is None:
+                    # If s is None, use the array shape along the transformed axes
+                    if axes is None:
+                        # If axes is None, all dimensions are transformed
+                        dims = array.shape
+                    else:
+                        # Otherwise use the specified axes
+                        dims = [array.shape[ax] for ax in axes]
+                else:
+                    # Otherwise use the specified shape
+                    dims = s
+                scale = 1.0 / np.sqrt(np.prod(dims))
+                result *= scale
             
             return result
     
@@ -920,16 +1059,32 @@ class SmartFFTW:
                 # cache the plan
                 cls._plan_cache[key] = irfftn_obj
                 cls._plan_quality[key] = planner
-            
+        
             # Execute the transform
             result = irfftn_obj(array)
             
+            # PyFFTW doesn't handle normalization exactly like NumPy, so we need to handle it manually
+            if norm == 'ortho':
+                # Calculate the normalization factor correctly
+                if s is None:
+                    # If s is None, use the array shape along the transformed axes
+                    if axes is None:
+                        # If axes is None, all dimensions are transformed
+                        dims = array.shape
+                    else:
+                        # Otherwise use the specified axes
+                        dims = [array.shape[ax] for ax in axes]
+                else:
+                    # Otherwise use the specified shape
+                    dims = s
+                scale = 1.0 / np.sqrt(np.prod(dims))
+                result *= scale
+            
             return result
-    
     @classmethod
     def import_wisdom(cls, filename: str = None) -> bool:
         """
-        Import FFTW wisdom from a file or default location.
+        Import FFTW wisdom from a file.
         
         Args:
             filename: Path to wisdom file (None = use default path)
@@ -941,18 +1096,34 @@ class SmartFFTW:
             filename = WISDOM_FILE
             
         try:
-            if os.path.exists(filename):
-                with open(filename, 'rb') as f:
-                    wisdom = f.read()
-                return pyfftw.import_wisdom(wisdom)
+            # Check if file exists first
+            if not os.path.exists(filename):
+                print(f"Warning: Wisdom file not found: {filename}")
+                return False
+                
+            # Read the file
+            with open(filename, 'rb') as f:
+                wisdom_data = f.read()
+                
+            # Handle empty file case
+            if not wisdom_data:
+                print(f"Warning: Wisdom file is empty: {filename}")
+                return False
+                
+            # Import the wisdom - PyFFTW expects a tuple of (bytes, bytes, bytes)
+            # We need to create a proper wisdom tuple
+            wisdom_tuple = (wisdom_data, b'', b'')  # Format: (double, single, long double)
+            result = pyfftw.import_wisdom(wisdom_tuple)
+            
+            return True
+        except Exception as e:
+            print(f"Warning: Error importing wisdom: {str(e)}")
             return False
-        except Exception:
-            return False
-    
+
     @classmethod
     def export_wisdom(cls, filename: str = None) -> bool:
         """
-        Export FFTW wisdom to a file or default location.
+        Export FFTW wisdom to a file.
         
         Args:
             filename: Path to wisdom file (None = use default path)
@@ -964,14 +1135,35 @@ class SmartFFTW:
             filename = WISDOM_FILE
             
         try:
+            # Generate some wisdom if none exists by running a transform
+            # This ensures we have something to export
+            dummy_arr = np.ones((16, 16), dtype=np.complex128)
+            pyfftw.interfaces.numpy_fft.fft2(dummy_arr)
+            
+            # Get the wisdom
             wisdom = pyfftw.export_wisdom()
-            os.makedirs(os.path.dirname(filename), exist_ok=True)
+            if not wisdom or len(wisdom) < 1:
+                print("Warning: No wisdom available to export")
+                return False
+                
+            # Create directory if it doesn't exist
+            directory = os.path.dirname(filename)
+            if directory:
+                os.makedirs(directory, exist_ok=True)
+                
+            # Write wisdom to file - only write the double precision wisdom (first element)
+            wisdom_bytes = wisdom[0]
+            if not isinstance(wisdom_bytes, bytes):
+                print(f"Warning: Expected bytes, got {type(wisdom_bytes)}")
+                return False
+                
             with open(filename, 'wb') as f:
-                f.write(wisdom[0])
+                f.write(wisdom_bytes)
+                
             return True
-        except Exception:
+        except Exception as e:
+            print(f"Warning: Error exporting wisdom: {str(e)}")
             return False
-    
     @classmethod
     def set_default_threads(cls, threads: int):
         """Set the default thread count for all transforms."""
@@ -1088,10 +1280,31 @@ def empty_aligned(shape, dtype=np.complex128, n=None):
 def empty_aligned_like(array, n=None):
     """Create an empty aligned array like another array."""
     return pyfftw.empty_aligned(array.shape, array.dtype, n)
-
 def byte_align(array, n=None, copy=True):
-    """Align an existing array to memory boundary for optimal FFTW performance."""
-    return pyfftw.byte_align(array, n, copy)
+    """
+    Align an existing array to memory boundary for optimal FFTW performance.
+    
+    Args:
+        array: Array to align
+        n: Byte boundary to align to (None = FFTW default)
+        copy: Whether to copy the array if it's already aligned
+        
+    Returns:
+        Aligned array
+    """
+    try:
+        # Try using keyword arguments first
+        return pyfftw.byte_align(array, n=n, copy=copy)
+    except TypeError:
+        # Fall back to positional arguments
+        if n is None:
+            return pyfftw.byte_align(array, copy)
+        else:
+            return pyfftw.byte_align(array, n, copy)
+    except Exception as e:
+        # Last resort - just return the original array
+        print(f"Warning: byte_align failed: {str(e)}")
+        return np.array(array, copy=copy)
 
 def import_wisdom(filename=None):
     """Import FFTW wisdom from a file."""

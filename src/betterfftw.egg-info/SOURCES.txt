@@ -10,4 +10,5 @@ src/betterfftw.egg-info/SOURCES.txt
 src/betterfftw.egg-info/dependency_links.txt
 src/betterfftw.egg-info/requires.txt
 src/betterfftw.egg-info/top_level.txt
+tests/test-betterfftw.py
 tests/test_basic.py

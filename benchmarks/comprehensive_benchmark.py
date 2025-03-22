@@ -338,8 +338,11 @@ class BetterFFTW(FFTImplementation):
         super().__init__("-".join(name_parts))
         
         # Import the library
-        import betterfftw
-        self.bfft = betterfftw
+        try:
+            import betterfftw
+            self.bfft = betterfftw
+        except ImportError:
+            raise ImportError("BetterFFTW is not installed or cannot be imported")
         
     def setup(self):
         # Configure BetterFFTW
@@ -356,60 +359,137 @@ class BetterFFTW(FFTImplementation):
         pass
     
     def fft(self, array, **kwargs):
+        """Compute 1D FFT."""
+        # Clean up kwargs to ensure compatibility
         kwargs_copy = kwargs.copy()
         if 's' in kwargs_copy:
             kwargs_copy['n'] = kwargs_copy.pop('s')
         if 'axes' in kwargs_copy:
             kwargs_copy['axis'] = kwargs_copy.pop('axes')
+        if 'overwrite_input' in kwargs_copy and 'pyfftw' not in self.name.lower():
+            kwargs_copy.pop('overwrite_input')  # Not supported by all implementations
         return self.bfft.fft(array, **kwargs_copy)
         
     def ifft(self, array, **kwargs):
+        """Compute 1D inverse FFT."""
         kwargs_copy = kwargs.copy()
         if 's' in kwargs_copy:
             kwargs_copy['n'] = kwargs_copy.pop('s')
         if 'axes' in kwargs_copy:
             kwargs_copy['axis'] = kwargs_copy.pop('axes')
+        if 'overwrite_input' in kwargs_copy and 'pyfftw' not in self.name.lower():
+            kwargs_copy.pop('overwrite_input')  # Not supported by all implementations
         return self.bfft.ifft(array, **kwargs_copy)
         
     def rfft(self, array, **kwargs):
+        """Compute 1D real FFT."""
         kwargs_copy = kwargs.copy()
         if 's' in kwargs_copy:
             kwargs_copy['n'] = kwargs_copy.pop('s')
         if 'axes' in kwargs_copy:
             kwargs_copy['axis'] = kwargs_copy.pop('axes')
+        if 'overwrite_input' in kwargs_copy and 'pyfftw' not in self.name.lower():
+            kwargs_copy.pop('overwrite_input')  # Not supported by all implementations
         return self.bfft.rfft(array, **kwargs_copy)
         
     def irfft(self, array, **kwargs):
+        """Compute 1D inverse real FFT."""
         kwargs_copy = kwargs.copy()
         if 's' in kwargs_copy:
             kwargs_copy['n'] = kwargs_copy.pop('s')
         if 'axes' in kwargs_copy:
             kwargs_copy['axis'] = kwargs_copy.pop('axes')
+        if 'overwrite_input' in kwargs_copy and 'pyfftw' not in self.name.lower():
+            kwargs_copy.pop('overwrite_input')  # Not supported by all implementations
         return self.bfft.irfft(array, **kwargs_copy)
         
     def fft2(self, array, **kwargs):
-        return self.bfft.fft2(array, **kwargs)
+        """Compute 2D FFT."""
+        kwargs_copy = kwargs.copy()
+        if 'overwrite_input' in kwargs_copy and 'pyfftw' not in self.name.lower():
+            kwargs_copy.pop('overwrite_input')  # Not supported by all implementations
+        return self.bfft.fft2(array, **kwargs_copy)
         
     def ifft2(self, array, **kwargs):
-        return self.bfft.ifft2(array, **kwargs)
+        """Compute 2D inverse FFT."""
+        kwargs_copy = kwargs.copy()
+        if 'overwrite_input' in kwargs_copy and 'pyfftw' not in self.name.lower():
+            kwargs_copy.pop('overwrite_input')  # Not supported by all implementations
+        return self.bfft.ifft2(array, **kwargs_copy)
         
     def rfft2(self, array, **kwargs):
-        return self.bfft.rfft2(array, **kwargs)
+        """Compute 2D real FFT."""
+        kwargs_copy = kwargs.copy()
+        if 'overwrite_input' in kwargs_copy and 'pyfftw' not in self.name.lower():
+            kwargs_copy.pop('overwrite_input')  # Not supported by all implementations
+        return self.bfft.rfft2(array, **kwargs_copy)
         
     def irfft2(self, array, **kwargs):
-        return self.bfft.irfft2(array, **kwargs)
+        """Compute 2D inverse real FFT."""
+        try:
+            # First, strip out any problematic parameters
+            essential_kwargs = {}
+            if 's' in kwargs:
+                essential_kwargs['s'] = kwargs['s']
+            if 'axes' in kwargs:
+                essential_kwargs['axes'] = kwargs['axes']
+            if 'norm' in kwargs:
+                essential_kwargs['norm'] = kwargs['norm']
+            
+            # Call with only essential parameters
+            return self.bfft.irfft2(array, **essential_kwargs)
+        except Exception as e:
+            print(f"Error in irfft2: {str(e)}")
+            # If all else fails, try with minimal arguments
+            try:
+                return self.bfft.irfft2(array)
+            except Exception as e2:
+                print(f"Fallback also failed: {str(e2)}")
+                raise
         
     def fftn(self, array, **kwargs):
-        return self.bfft.fftn(array, **kwargs)
+        """Compute N-dimensional FFT."""
+        kwargs_copy = kwargs.copy()
+        if 'overwrite_input' in kwargs_copy and 'pyfftw' not in self.name.lower():
+            kwargs_copy.pop('overwrite_input')  # Not supported by all implementations
+        return self.bfft.fftn(array, **kwargs_copy)
         
     def ifftn(self, array, **kwargs):
-        return self.bfft.ifftn(array, **kwargs)
+        """Compute N-dimensional inverse FFT."""
+        kwargs_copy = kwargs.copy()
+        if 'overwrite_input' in kwargs_copy and 'pyfftw' not in self.name.lower():
+            kwargs_copy.pop('overwrite_input')  # Not supported by all implementations
+        return self.bfft.ifftn(array, **kwargs_copy)
         
     def rfftn(self, array, **kwargs):
-        return self.bfft.rfftn(array, **kwargs)
+        """Compute N-dimensional real FFT."""
+        kwargs_copy = kwargs.copy()
+        if 'overwrite_input' in kwargs_copy and 'pyfftw' not in self.name.lower():
+            kwargs_copy.pop('overwrite_input')  # Not supported by all implementations
+        return self.bfft.rfftn(array, **kwargs_copy)
         
     def irfftn(self, array, **kwargs):
-        return self.bfft.irfftn(array, **kwargs)
+        """Compute N-dimensional inverse real FFT."""
+        try:
+            # First, strip out any problematic parameters
+            essential_kwargs = {}
+            if 's' in kwargs:
+                essential_kwargs['s'] = kwargs['s']
+            if 'axes' in kwargs:
+                essential_kwargs['axes'] = kwargs['axes']
+            if 'norm' in kwargs:
+                essential_kwargs['norm'] = kwargs['norm']
+            
+            # Call with only essential parameters
+            return self.bfft.irfftn(array, **essential_kwargs)
+        except Exception as e:
+            print(f"Error in irfftn: {str(e)}")
+            # If all else fails, try with minimal arguments
+            try:
+                return self.bfft.irfftn(array)
+            except Exception as e2:
+                print(f"Fallback also failed: {str(e2)}")
+                raise
 
 
 class BenchmarkTest:
@@ -592,8 +672,8 @@ class FFTBenchmark(BenchmarkTest):
                     durations.append(duration)
                 
                 # Calculate statistics
-                mean_duration = statistics.mean(durations)
-                if len(durations) > 1:
+                mean_duration = statistics.mean(durations) if durations else 0
+                if len(durations) > 1 and mean_duration > 0:
                     stdev_duration = statistics.stdev(durations)
                     results['subsequent_calls']['stdev'] = stdev_duration
                     results['subsequent_calls']['stdev_percent'] = (stdev_duration / mean_duration) * 100
@@ -1035,20 +1115,24 @@ def create_implementations(test_betterfftw_configs=True):
         implementations.append(SciPyFFT())
     
     # Add BetterFFTW with different configurations
-    implementations.append(BetterFFTW())  # Default configuration
-    
-    if test_betterfftw_configs:
-        # Test different thread counts
-        cpu_count = os.cpu_count() or 4
-        if cpu_count >= 4:
-            implementations.append(BetterFFTW(threads=1))
-            implementations.append(BetterFFTW(threads=cpu_count//2))
-            implementations.append(BetterFFTW(threads=cpu_count))
+    try:
+        implementations.append(BetterFFTW())  # Default configuration
         
-        # Test different planner strategies
-        implementations.append(BetterFFTW(planner='FFTW_ESTIMATE'))
-        implementations.append(BetterFFTW(planner='FFTW_MEASURE'))
-        implementations.append(BetterFFTW(planner='FFTW_PATIENT'))
+        if test_betterfftw_configs:
+            # Test different thread counts
+            cpu_count = os.cpu_count() or 4
+            if cpu_count >= 4:
+                implementations.append(BetterFFTW(threads=1))
+                implementations.append(BetterFFTW(threads=cpu_count//2))
+                implementations.append(BetterFFTW(threads=cpu_count))
+            
+            # Test different planner strategies
+            implementations.append(BetterFFTW(planner='FFTW_ESTIMATE'))
+            implementations.append(BetterFFTW(planner='FFTW_MEASURE'))
+            implementations.append(BetterFFTW(planner='FFTW_PATIENT'))
+    except ImportError as e:
+        print(f"Warning: BetterFFTW could not be imported: {str(e)}")
+        print("Continuing with only NumPy and SciPy implementations.")
     
     return implementations
 
@@ -1106,6 +1190,9 @@ def run_benchmark_suite(benchmarks, implementations, quick_mode=False, output_di
                 # Run the benchmark for this implementation
                 result = benchmark.run(implementation, quick_mode=quick_mode)
                 
+                # Ensure the result is JSON serializable
+                result = make_json_serializable(result)
+                
                 # Store the result
                 results['benchmarks'][benchmark.name]['implementations'][implementation.name] = result
                 
@@ -1119,14 +1206,19 @@ def run_benchmark_suite(benchmarks, implementations, quick_mode=False, output_di
                         numpy_result = results['benchmarks'][benchmark.name]['implementations']['NumPy']
                         if 'subsequent_calls' in numpy_result and 'duration' in numpy_result['subsequent_calls']:
                             numpy_duration = numpy_result['subsequent_calls']['duration']
-                            speedup = numpy_duration / duration
-                            print(f"    Speedup vs NumPy: {speedup:.2f}x")
+                            if duration > 0:  # Prevent division by zero
+                                speedup = numpy_duration / duration
+                                print(f"    Speedup vs NumPy: {speedup:.2f}x")
+                            else:
+                                print(f"    Speedup vs NumPy: N/A (duration is effectively zero)")
                 elif 'total_duration' in result:
                     duration = result['total_duration']
                     print(f"    Total duration: {format_duration(duration)}")
                 
             except Exception as e:
+                import traceback
                 print(f"    Error: {str(e)}")
+                print(traceback.format_exc())
                 results['benchmarks'][benchmark.name]['implementations'][implementation.name] = {
                     'error': str(e),
                 }
@@ -1144,8 +1236,11 @@ def run_benchmark_suite(benchmarks, implementations, quick_mode=False, output_di
             if completed_benchmarks % 10 == 0:
                 results['end_time'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 results['elapsed_time'] = elapsed_time
-                with open(os.path.join(output_dir, "benchmark_results_partial.json"), 'w') as f:
-                    json.dump(results, f, indent=2)
+                try:
+                    with open(os.path.join(output_dir, "benchmark_results_partial.json"), 'w') as f:
+                        json.dump(results, f, indent=2, default=str)
+                except Exception as e:
+                    print(f"Warning: Could not save partial results: {str(e)}")
     
     # Final timing information
     end_time = time.time()
@@ -1155,17 +1250,56 @@ def run_benchmark_suite(benchmarks, implementations, quick_mode=False, output_di
     
     # Save full results
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    with open(os.path.join(output_dir, f"benchmark_results_{timestamp}.json"), 'w') as f:
-        json.dump(results, f, indent=2)
-    
-    # Also save as latest
-    with open(os.path.join(output_dir, "benchmark_results_latest.json"), 'w') as f:
-        json.dump(results, f, indent=2)
+    try:
+        with open(os.path.join(output_dir, f"benchmark_results_{timestamp}.json"), 'w') as f:
+            json.dump(results, f, indent=2, default=str)
+        
+        # Also save as latest
+        with open(os.path.join(output_dir, "benchmark_results_latest.json"), 'w') as f:
+            json.dump(results, f, indent=2, default=str)
+    except Exception as e:
+        print(f"Warning: Could not save full results: {str(e)}")
+        # Try a simplified version without indentation
+        try:
+            with open(os.path.join(output_dir, f"benchmark_results_{timestamp}_simple.json"), 'w') as f:
+                json.dump(results, f, default=str)
+        except:
+            print("Could not save results in any format.")
     
     print(f"\nBenchmark completed in {format_duration(total_duration)}")
     print(f"Results saved to {output_dir}")
     
     return results
+
+
+def make_json_serializable(obj):
+    """
+    Recursively ensure all data in an object is JSON serializable.
+    Handles numpy arrays, numpy data types, and other special types.
+    """
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif isinstance(obj, (np.integer, np.floating, np.bool_)):
+        return obj.item()
+    elif isinstance(obj, (complex, np.complex64, np.complex128)):
+        return str(obj)
+    elif isinstance(obj, dict):
+        return {k: make_json_serializable(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [make_json_serializable(item) for item in obj]
+    elif isinstance(obj, tuple):
+        return [make_json_serializable(item) for item in obj]
+    elif isinstance(obj, (set, frozenset)):
+        return [make_json_serializable(item) for item in obj]
+    elif hasattr(obj, '__dict__'):
+        return make_json_serializable(obj.__dict__)
+    else:
+        # If it's a custom type that might not be serializable, convert to string
+        try:
+            json.dumps(obj)
+            return obj
+        except (TypeError, OverflowError):
+            return str(obj)
 
 
 def analyze_results(results):

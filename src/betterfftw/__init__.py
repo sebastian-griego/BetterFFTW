@@ -53,7 +53,11 @@ from .interface import (
     # Registration functions
     use_as_default_fft, restore_default_fft,
     register_numpy_fft, unregister_numpy_fft,
-    register_scipy_fft, unregister_scipy_fft
+    register_scipy_fft, unregister_scipy_fft,
+    
+    # Utility functions that were missing
+    fftfreq, rfftfreq, fftshift, ifftshift,
+    hfft, ihfft
 )
 
 # Import planning module for advanced users
