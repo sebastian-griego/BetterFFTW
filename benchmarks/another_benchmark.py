@@ -326,7 +326,6 @@ def calculate_fft_gflops(shape, func_name):
     
     # Convert to GFLOPS (billion floating point operations)
     return flops / 1e9
-
 def run_benchmark_suite(config):
     """
     Run a full benchmark suite based on configuration.
@@ -352,15 +351,35 @@ def run_benchmark_suite(config):
     print(f"Runs per test: {config['n_runs']}")
     print("=" * 50)
     
-    total_tests = (
-        len(config['implementations']) *
-        len(config['transform_types']) *
-        len(config['sizes']) *
-        len(config['dimensions']) *
-        len(config['dtypes']) *
-        len(config['thread_counts'])
-    )
-    print(f"Total tests to run: {total_tests}")
+    # Count total tests, accounting for skipped combinations due to dimensionality
+    valid_tests = 0
+    for transform_type in config['transform_types']:
+        for dimension in config['dimensions']:
+            transform_name = transform_type['func_name']
+            dim_name = dimension['name']
+            
+            # Check compatibility
+            if transform_name in ['fft2', 'ifft2', 'rfft2', 'irfft2'] and dim_name == '1D':
+                continue
+            if transform_name in ['fftn', 'ifftn', 'rfftn', 'irfftn'] and dim_name == '1D' and min(config['sizes']) < 1000:
+                continue
+                
+            # Count valid tests for this transform-dimension pair
+            for implementation in config['implementations']:
+                for size in config['sizes']:
+                    for dtype_info in config['dtypes']:
+                        for thread_count in config['thread_counts']:
+                            # Skip thread benchmarks for NumPy and SciPy if thread_count > 1
+                            if thread_count > 1 and implementation['name'] in ['NumPy FFT', 'SciPy FFT']:
+                                continue
+                                
+                            # Skip higher dimensions for very large sizes to avoid OOM
+                            if size in very_large_sizes and dimension['name'] in ['3D', '4D']:
+                                continue
+                                
+                            valid_tests += 1
+                            
+    print(f"Total valid tests to run: {valid_tests}")
     
     # Counters for progress tracking
     completed_tests = 0
@@ -373,6 +392,20 @@ def run_benchmark_suite(config):
         for transform_type in config['transform_types']:
             for size in config['sizes']:
                 for dimension in config['dimensions']:
+                    # Check dimension compatibility with transform
+                    transform_name = transform_type['func_name']
+                    dim_name = dimension['name']
+                    
+                    # Skip incompatible dimension-transform combinations
+                    if transform_name in ['fft2', 'ifft2', 'rfft2', 'irfft2'] and dim_name == '1D':
+                        print(f"Skipping {transform_type['name']} on {dim_name} array (incompatible dimensions)")
+                        continue
+                        
+                    if transform_name in ['fftn', 'ifftn', 'rfftn', 'irfftn'] and dim_name == '1D' and size < 1000:
+                        # fftn works on 1D but is inefficient - only test for large arrays where the difference matters
+                        print(f"Skipping {transform_type['name']} on {dim_name} array (inefficient combination)")
+                        continue
+                    
                     for dtype_info in config['dtypes']:
                         for thread_count in config['thread_counts']:
                             # Skip higher dimensions for very large sizes to avoid OOM
@@ -415,9 +448,9 @@ def run_benchmark_suite(config):
                             
                             # Print progress
                             completed_tests += 1
-                            progress = completed_tests / total_tests * 100
+                            progress = completed_tests / valid_tests * 100
                             elapsed_time = time.time() - suite_start_time
-                            eta = elapsed_time / completed_tests * (total_tests - completed_tests)
+                            eta = elapsed_time / completed_tests * (valid_tests - completed_tests)
                             
                             print(f"[{progress:.1f}%] Testing {implementation['name']} {transform_type['name']} "
                                   f"on {dimension['name']} array of size {size} ({dtype_info['name']}) "
@@ -455,6 +488,30 @@ def run_benchmark_suite(config):
     
     return df
 
+# Helper function to check transform-dimension compatibility
+def is_compatible(transform_name, dimension_name, size=None):
+    """
+    Check if a transform type is compatible with the given dimension.
+    
+    Args:
+        transform_name: Name of the transform function
+        dimension_name: Name of the dimension
+        size: Size of the array (some combinations only make sense for large arrays)
+        
+    Returns:
+        True if compatible, False otherwise
+    """
+    # 2D transforms need at least 2D arrays
+    if transform_name in ['fft2', 'ifft2', 'rfft2', 'irfft2'] and dimension_name == '1D':
+        return False
+        
+    # N-D transforms on 1D arrays are inefficient for small sizes
+    if transform_name in ['fftn', 'ifftn', 'rfftn', 'irfftn'] and dimension_name == '1D' and size is not None and size < 1000:
+        return False
+        
+    return True
+
+# Update repeated transform benchmark
 def run_repeated_transform_benchmark(config):
     """
     Benchmark the performance impact of repeating the same transform.
@@ -476,6 +533,14 @@ def run_repeated_transform_benchmark(config):
         for transform_type in config['transform_types']:
             for size in config['sizes']:
                 for dimension in config['dimensions']:
+                    # Check compatibility
+                    transform_name = transform_type['func_name']
+                    dim_name = dimension['name']
+                    
+                    if not is_compatible(transform_name, dim_name, size):
+                        print(f"Skipping {transform_type['name']} on {dim_name} array (incompatible dimensions)")
+                        continue
+                
                     # Calculate shape based on dimension
                     shape = dimension['shape_func'](size)
                     
@@ -502,46 +567,49 @@ def run_repeated_transform_benchmark(config):
                     print(f"Testing {implementation['name']} {transform_type['name']} "
                           f"on {dimension['name']} array of size {size}")
                     
-                    # Track time for each repetition
-                    times = []
-                    
-                    # Run with increasing repetition counts
-                    for repetitions in config['repetition_counts']:
-                        # Force garbage collection
-                        gc.collect()
+                    try:
+                        # Track time for each repetition
+                        times = []
                         
-                        start_time = time.time()
-                        for _ in range(repetitions):
-                            array_copy = array.copy()
-                            result = func(array_copy, **impl_kwargs)
-                        end_time = time.time()
+                        # Run with increasing repetition counts
+                        for repetitions in config['repetition_counts']:
+                            # Force garbage collection
+                            gc.collect()
+                            
+                            start_time = time.time()
+                            for _ in range(repetitions):
+                                array_copy = array.copy()
+                                result = func(array_copy, **impl_kwargs)
+                            end_time = time.time()
+                            
+                            total_time = end_time - start_time
+                            time_per_transform = total_time / repetitions
+                            
+                            times.append(time_per_transform)
+                            
+                            # Record result
+                            results.append({
+                                "implementation": implementation['name'],
+                                "transform_type": transform_type['name'],
+                                "dimension": dimension['name'],
+                                "size": size,
+                                "repetitions": repetitions,
+                                "total_time": total_time,
+                                "time_per_transform": time_per_transform
+                            })
+                            
+                            print(f"  {repetitions} repetitions: {total_time:.6f}s total, "
+                                  f"{time_per_transform:.6f}s per transform")
                         
-                        total_time = end_time - start_time
-                        time_per_transform = total_time / repetitions
-                        
-                        times.append(time_per_transform)
-                        
-                        # Record result
-                        results.append({
-                            "implementation": implementation['name'],
-                            "transform_type": transform_type['name'],
-                            "dimension": dimension['name'],
-                            "size": size,
-                            "repetitions": repetitions,
-                            "total_time": total_time,
-                            "time_per_transform": time_per_transform
-                        })
-                        
-                        print(f"  {repetitions} repetitions: {total_time:.6f}s total, "
-                              f"{time_per_transform:.6f}s per transform")
-                    
-                    # Calculate improvement from first to last
-                    if times[0] > 0 and times[-1] > 0:
-                        improvement = times[0] / times[-1]
-                        print(f"  Improvement: {improvement:.2f}x")
-                    
-                    # Cleanup implementation
-                    implementation["cleanup"]()
+                        # Calculate improvement from first to last
+                        if times[0] > 0 and times[-1] > 0:
+                            improvement = times[0] / times[-1]
+                            print(f"  Improvement: {improvement:.2f}x")
+                    except Exception as e:
+                        print(f"  Error: {str(e)}")
+                    finally:
+                        # Cleanup implementation
+                        implementation["cleanup"]()
     
     # Convert results to DataFrame
     df = pd.DataFrame(results)
@@ -689,6 +757,7 @@ def run_non_power_of_two_benchmark(config):
     
     return df
 
+# Update threading scaling benchmark
 def run_threading_scaling_benchmark(config):
     """
     Benchmark how performance scales with thread count.
@@ -714,6 +783,14 @@ def run_threading_scaling_benchmark(config):
         for transform_type in config['transform_types']:
             for size in config['sizes']:
                 for dimension in config['dimensions']:
+                    # Check compatibility
+                    transform_name = transform_type['func_name']
+                    dim_name = dimension['name']
+                    
+                    if not is_compatible(transform_name, dim_name, size):
+                        print(f"Skipping {transform_type['name']} on {dim_name} array (incompatible dimensions)")
+                        continue
+                    
                     # Calculate shape based on dimension
                     shape = dimension['shape_func'](size)
                     
@@ -722,7 +799,12 @@ def run_threading_scaling_benchmark(config):
                         'ifft', 'ifft2', 'ifftn', 'irfft', 'irfft2', 'irfftn'
                     ]
                     dtype = np.complex128 if is_complex_input else np.float64
-                    array = create_test_array(shape, dtype, is_complex=is_complex_input)
+                    
+                    try:
+                        array = create_test_array(shape, dtype, is_complex=is_complex_input)
+                    except MemoryError:
+                        print(f"Memory error creating array of shape {shape}")
+                        continue
                     
                     # Get function
                     module = implementation["module"]
@@ -733,65 +815,68 @@ def run_threading_scaling_benchmark(config):
                     print(f"Testing {implementation['name']} {transform_type['name']} "
                           f"on {dimension['name']} array of size {size}")
                     
-                    # Reference time with single thread
-                    impl_kwargs = implementation["kwargs"].copy()
-                    impl_kwargs["threads"] = 1
-                    
-                    # Setup implementation
-                    implementation["setup"]()
-                    
-                    # Run single-thread benchmark
-                    _ = func(array.copy(), **impl_kwargs)  # Warm-up
-                    
-                    start_time = time.time()
-                    for _ in range(config['n_runs']):
-                        array_copy = array.copy()
-                        _ = func(array_copy, **impl_kwargs)
-                    single_thread_time = (time.time() - start_time) / config['n_runs']
-                    
-                    print(f"  1 thread: {single_thread_time:.6f}s")
-                    
-                    # Test each thread count
-                    for thread_count in config['thread_counts']:
-                        if thread_count == 1:
-                            # Already measured
-                            current_time = single_thread_time
-                            speedup = 1.0
-                            efficiency = 1.0
-                        else:
-                            # Update thread count
-                            impl_kwargs["threads"] = thread_count
-                            
-                            # Run multi-thread benchmark
-                            _ = func(array.copy(), **impl_kwargs)  # Warm-up
-                            
-                            start_time = time.time()
-                            for _ in range(config['n_runs']):
-                                array_copy = array.copy()
-                                _ = func(array_copy, **impl_kwargs)
-                            current_time = (time.time() - start_time) / config['n_runs']
-                            
-                            # Calculate speedup and parallel efficiency
-                            speedup = single_thread_time / current_time
-                            efficiency = speedup / thread_count
-                            
-                            print(f"  {thread_count} threads: {current_time:.6f}s, "
-                                  f"speedup: {speedup:.2f}x, efficiency: {efficiency:.2f}")
+                    try:
+                        # Reference time with single thread
+                        impl_kwargs = implementation["kwargs"].copy()
+                        impl_kwargs["threads"] = 1
                         
-                        # Record result
-                        results.append({
-                            "implementation": implementation['name'],
-                            "transform_type": transform_type['name'],
-                            "dimension": dimension['name'],
-                            "size": size,
-                            "thread_count": thread_count,
-                            "time": current_time,
-                            "speedup": speedup,
-                            "efficiency": efficiency
-                        })
-                    
-                    # Cleanup implementation
-                    implementation["cleanup"]()
+                        # Setup implementation
+                        implementation["setup"]()
+                        
+                        # Run single-thread benchmark
+                        _ = func(array.copy(), **impl_kwargs)  # Warm-up
+                        
+                        start_time = time.time()
+                        for _ in range(config['n_runs']):
+                            array_copy = array.copy()
+                            _ = func(array_copy, **impl_kwargs)
+                        single_thread_time = (time.time() - start_time) / config['n_runs']
+                        
+                        print(f"  1 thread: {single_thread_time:.6f}s")
+                        
+                        # Test each thread count
+                        for thread_count in config['thread_counts']:
+                            if thread_count == 1:
+                                # Already measured
+                                current_time = single_thread_time
+                                speedup = 1.0
+                                efficiency = 1.0
+                            else:
+                                # Update thread count
+                                impl_kwargs["threads"] = thread_count
+                                
+                                # Run multi-thread benchmark
+                                _ = func(array.copy(), **impl_kwargs)  # Warm-up
+                                
+                                start_time = time.time()
+                                for _ in range(config['n_runs']):
+                                    array_copy = array.copy()
+                                    _ = func(array_copy, **impl_kwargs)
+                                current_time = (time.time() - start_time) / config['n_runs']
+                                
+                                # Calculate speedup and parallel efficiency
+                                speedup = single_thread_time / current_time
+                                efficiency = speedup / thread_count
+                                
+                                print(f"  {thread_count} threads: {current_time:.6f}s, "
+                                      f"speedup: {speedup:.2f}x, efficiency: {efficiency:.2f}")
+                            
+                            # Record result
+                            results.append({
+                                "implementation": implementation['name'],
+                                "transform_type": transform_type['name'],
+                                "dimension": dimension['name'],
+                                "size": size,
+                                "thread_count": thread_count,
+                                "time": current_time,
+                                "speedup": speedup,
+                                "efficiency": efficiency
+                            })
+                    except Exception as e:
+                        print(f"  Error: {str(e)}")
+                    finally:
+                        # Cleanup implementation
+                        implementation["cleanup"]()
     
     # Convert results to DataFrame
     df = pd.DataFrame(results)
@@ -803,6 +888,7 @@ def run_threading_scaling_benchmark(config):
     
     return df
 
+# Update planning strategy benchmark
 def run_planning_strategy_benchmark(config):
     """
     Benchmark the impact of different planning strategies.
@@ -836,6 +922,14 @@ def run_planning_strategy_benchmark(config):
         for transform_type in config['transform_types']:
             for size in config['sizes']:
                 for dimension in config['dimensions']:
+                    # Check compatibility
+                    transform_name = transform_type['func_name']
+                    dim_name = dimension['name']
+                    
+                    if not is_compatible(transform_name, dim_name, size):
+                        print(f"Skipping {transform_type['name']} on {dim_name} array (incompatible dimensions)")
+                        continue
+                    
                     # Calculate shape based on dimension
                     shape = dimension['shape_func'](size)
                     
@@ -844,7 +938,12 @@ def run_planning_strategy_benchmark(config):
                         'ifft', 'ifft2', 'ifftn', 'irfft', 'irfft2', 'irfftn'
                     ]
                     dtype = np.complex128 if is_complex_input else np.float64
-                    array = create_test_array(shape, dtype, is_complex=is_complex_input)
+                    
+                    try:
+                        array = create_test_array(shape, dtype, is_complex=is_complex_input)
+                    except MemoryError:
+                        print(f"Memory error creating array of shape {shape}")
+                        continue
                     
                     # Get function
                     module = implementation["module"]
@@ -862,54 +961,57 @@ def run_planning_strategy_benchmark(config):
                             print(f"  Skipping {strategy} for size {size} (would take too long)")
                             continue
                         
-                        # Setup implementation
-                        implementation["setup"]()
-                        
-                        # Set planning strategy
-                        impl_kwargs = implementation["kwargs"].copy()
-                        if "PyFFTW" in implementation['name']:
-                            impl_kwargs["planner_effort"] = strategy
-                        else:
-                            impl_kwargs["planner"] = strategy
-                        
-                        # Measure planning time
-                        gc.collect()
-                        plan_start_time = time.time()
-                        _ = func(array.copy(), **impl_kwargs)  # First call includes planning
-                        planning_time = time.time() - plan_start_time
-                        
-                        # Measure execution time (after planning)
-                        exec_times = []
-                        for _ in range(config['n_runs']):
-                            array_copy = array.copy()
+                        try:
+                            # Setup implementation
+                            implementation["setup"]()
+                            
+                            # Set planning strategy
+                            impl_kwargs = implementation["kwargs"].copy()
+                            if "PyFFTW" in implementation['name']:
+                                impl_kwargs["planner_effort"] = strategy
+                            else:
+                                impl_kwargs["planner"] = strategy
+                            
+                            # Measure planning time
                             gc.collect()
+                            plan_start_time = time.time()
+                            _ = func(array.copy(), **impl_kwargs)  # First call includes planning
+                            planning_time = time.time() - plan_start_time
                             
-                            start_time = time.time()
-                            _ = func(array_copy, **impl_kwargs)
-                            end_time = time.time()
+                            # Measure execution time (after planning)
+                            exec_times = []
+                            for _ in range(config['n_runs']):
+                                array_copy = array.copy()
+                                gc.collect()
+                                
+                                start_time = time.time()
+                                _ = func(array_copy, **impl_kwargs)
+                                end_time = time.time()
+                                
+                                exec_times.append(end_time - start_time)
                             
-                            exec_times.append(end_time - start_time)
-                        
-                        # Calculate statistics
-                        exec_median = sorted(exec_times)[len(exec_times) // 2]
-                        
-                        # Record result
-                        results.append({
-                            "implementation": implementation['name'],
-                            "transform_type": transform_type['name'],
-                            "dimension": dimension['name'],
-                            "size": size,
-                            "planning_strategy": strategy,
-                            "planning_time": planning_time,
-                            "execution_time": exec_median,
-                            "total_time": planning_time + (exec_median * config['n_runs'])
-                        })
-                        
-                        print(f"  {strategy}: planning={planning_time:.6f}s, "
-                              f"execution={exec_median:.6f}s")
-                        
-                        # Cleanup implementation
-                        implementation["cleanup"]()
+                            # Calculate statistics
+                            exec_median = sorted(exec_times)[len(exec_times) // 2]
+                            
+                            # Record result
+                            results.append({
+                                "implementation": implementation['name'],
+                                "transform_type": transform_type['name'],
+                                "dimension": dimension['name'],
+                                "size": size,
+                                "planning_strategy": strategy,
+                                "planning_time": planning_time,
+                                "execution_time": exec_median,
+                                "total_time": planning_time + (exec_median * config['n_runs'])
+                            })
+                            
+                            print(f"  {strategy}: planning={planning_time:.6f}s, "
+                                  f"execution={exec_median:.6f}s")
+                        except Exception as e:
+                            print(f"  Error: {str(e)}")
+                        finally:
+                            # Cleanup implementation
+                            implementation["cleanup"]()
     
     # Convert results to DataFrame
     df = pd.DataFrame(results)
@@ -948,6 +1050,20 @@ def run_dtype_benchmark(config):
         for transform_type in config['transform_types']:
             for size in config['sizes']:
                 for dimension in config['dimensions']:
+                    # Check dimension compatibility with transform
+                    transform_name = transform_type['func_name']
+                    dim_name = dimension['name']
+                    
+                    # Skip incompatible dimension-transform combinations
+                    if transform_name in ['fft2', 'ifft2', 'rfft2', 'irfft2'] and dim_name == '1D':
+                        print(f"Skipping {transform_type['name']} on {dim_name} array (incompatible dimensions)")
+                        continue
+                        
+                    if transform_name in ['fftn', 'ifftn', 'rfftn', 'irfftn'] and dim_name == '1D' and size < 1000:
+                        # fftn works on 1D but is inefficient - only test for large arrays where the difference matters
+                        print(f"Skipping {transform_type['name']} on {dim_name} array (inefficient combination)")
+                        continue
+                    
                     for dtype_info in dtypes:
                         # Calculate shape based on dimension
                         shape = dimension['shape_func'](size)
@@ -973,40 +1089,44 @@ def run_dtype_benchmark(config):
                         print(f"Testing {implementation['name']} {transform_type['name']} "
                               f"on {dimension['name']} array of size {size} ({dtype_info['name']})")
                         
-                        # Setup implementation
-                        implementation["setup"]()
-                        
-                        # Run benchmark
-                        _ = func(array.copy(), **impl_kwargs)  # Warm-up
-                        
-                        times = []
-                        for _ in range(config['n_runs']):
-                            array_copy = array.copy()
-                            gc.collect()
+                        try:
+                            # Setup implementation
+                            implementation["setup"]()
                             
-                            start_time = time.time()
-                            result = func(array_copy, **impl_kwargs)
-                            end_time = time.time()
+                            # Run benchmark
+                            _ = func(array.copy(), **impl_kwargs)  # Warm-up
                             
-                            times.append(end_time - start_time)
-                        
-                        # Calculate statistics
-                        median_time = sorted(times)[len(times) // 2]
-                        
-                        # Record result
-                        results.append({
-                            "implementation": implementation['name'],
-                            "transform_type": transform_type['name'],
-                            "dimension": dimension['name'],
-                            "size": size,
-                            "dtype": dtype_info['name'],
-                            "time": median_time
-                        })
-                        
-                        print(f"  Median time: {median_time:.6f}s")
-                        
-                        # Cleanup implementation
-                        implementation["cleanup"]()
+                            times = []
+                            for _ in range(config['n_runs']):
+                                array_copy = array.copy()
+                                gc.collect()
+                                
+                                start_time = time.time()
+                                result = func(array_copy, **impl_kwargs)
+                                end_time = time.time()
+                                
+                                times.append(end_time - start_time)
+                            
+                            # Calculate statistics
+                            median_time = sorted(times)[len(times) // 2]
+                            
+                            # Record result
+                            results.append({
+                                "implementation": implementation['name'],
+                                "transform_type": transform_type['name'],
+                                "dimension": dimension['name'],
+                                "size": size,
+                                "dtype": dtype_info['name'],
+                                "time": median_time
+                            })
+                            
+                            print(f"  Median time: {median_time:.6f}s")
+                            
+                        except Exception as e:
+                            print(f"  Error: {str(e)}")
+                        finally:
+                            # Cleanup implementation
+                            implementation["cleanup"]()
     
     # Convert results to DataFrame
     df = pd.DataFrame(results)
@@ -1099,116 +1219,194 @@ if __name__ == "__main__":
     benchmarks = [
         # 1. Basic performance comparison - small to medium sizes
         {
-            "name": "Basic Performance (Small)",
+            "name": "Basic Performance (Small)", 
             "implementations": list(implementations.values()),
-            "transform_types": [transform_types["fft"], transform_types["fft2"]],
+            "transform_types": [transform_types["fft"]],  # 1D transform
             "sizes": small_sizes,
-            "dimensions": [dimensions["1d"], dimensions["2d_square"]],
+            "dimensions": [dimensions["1d"]],  # 1D arrays
             "dtypes": [dtypes["float64"]],
             "thread_counts": [1],
             "n_runs": 5
         },
         
-        # 2. Basic performance comparison - medium to large sizes
+        # 2. 2D transform performance - small to medium sizes
+        {
+            "name": "2D Transform Performance (Small)",
+            "implementations": list(implementations.values()),
+            "transform_types": [transform_types["fft2"]],  # 2D transform
+            "sizes": small_sizes,
+            "dimensions": [dimensions["2d_square"], dimensions["2d_rect"]],  # 2D arrays
+            "dtypes": [dtypes["float64"]],
+            "thread_counts": [1],
+            "n_runs": 5
+        },
+        
+        # 3. Basic performance comparison - medium to large sizes
         {
             "name": "Basic Performance (Medium)",
             "implementations": list(implementations.values()),
-            "transform_types": [transform_types["fft"], transform_types["fft2"]],
+            "transform_types": [transform_types["fft"]],  # 1D transform
             "sizes": medium_sizes,
-            "dimensions": [dimensions["1d"], dimensions["2d_square"]],
+            "dimensions": [dimensions["1d"]],  # 1D arrays
             "dtypes": [dtypes["float64"]],
             "thread_counts": [1],
             "n_runs": 5
         },
         
-        # 3. Basic performance comparison - large sizes
+        # 4. 2D transform performance - medium to large sizes
+        {
+            "name": "2D Transform Performance (Medium)",
+            "implementations": list(implementations.values()),
+            "transform_types": [transform_types["fft2"]],  # 2D transform
+            "sizes": medium_sizes,
+            "dimensions": [dimensions["2d_square"], dimensions["2d_rect"]],  # 2D arrays
+            "dtypes": [dtypes["float64"]],
+            "thread_counts": [1],
+            "n_runs": 5
+        },
+        
+        # 5. Basic performance comparison - large sizes
         {
             "name": "Basic Performance (Large)",
             "implementations": list(implementations.values()),
-            "transform_types": [transform_types["fft"], transform_types["fft2"]],
+            "transform_types": [transform_types["fft"]],  # 1D transform
             "sizes": large_sizes,
-            "dimensions": [dimensions["1d"], dimensions["2d_square"]],
+            "dimensions": [dimensions["1d"]],  # 1D arrays
             "dtypes": [dtypes["float64"]],
             "thread_counts": [1],
             "n_runs": 3
         },
         
-        # 4. Real FFT performance
+        # 6. 2D transform performance - large sizes
         {
-            "name": "Real FFT Performance",
+            "name": "2D Transform Performance (Large)",
             "implementations": list(implementations.values()),
-            "transform_types": [transform_types["rfft"], transform_types["rfft2"]],
+            "transform_types": [transform_types["fft2"]],  # 2D transform
+            "sizes": large_sizes,
+            "dimensions": [dimensions["2d_square"]],  # 2D arrays
+            "dtypes": [dtypes["float64"]],
+            "thread_counts": [1],
+            "n_runs": 3
+        },
+        
+        # 7. Real FFT performance - 1D
+        {
+            "name": "Real FFT Performance (1D)",
+            "implementations": list(implementations.values()),
+            "transform_types": [transform_types["rfft"]],  # Real 1D transform
             "sizes": medium_sizes,
-            "dimensions": [dimensions["1d"], dimensions["2d_square"]],
+            "dimensions": [dimensions["1d"]],  # 1D arrays
             "dtypes": [dtypes["float64"]],
             "thread_counts": [1],
             "n_runs": 5
         },
         
-        # 5. 3D FFT performance
+        # 8. Real FFT performance - 2D
+        {
+            "name": "Real FFT Performance (2D)",
+            "implementations": list(implementations.values()),
+            "transform_types": [transform_types["rfft2"]],  # Real 2D transform
+            "sizes": medium_sizes,
+            "dimensions": [dimensions["2d_square"]],  # 2D arrays
+            "dtypes": [dtypes["float64"]],
+            "thread_counts": [1],
+            "n_runs": 5
+        },
+        
+        # 9. 3D FFT performance
         {
             "name": "3D FFT Performance",
             "implementations": list(implementations.values()),
-            "transform_types": [transform_types["fftn"]],
+            "transform_types": [transform_types["fftn"]],  # N-D transform
             "sizes": small_sizes + [128],  # Only small sizes for 3D
-            "dimensions": [dimensions["3d"]],
+            "dimensions": [dimensions["3d"]],  # 3D arrays
             "dtypes": [dtypes["float64"]],
             "thread_counts": [1],
             "n_runs": 3
         },
         
-        # 6. Threading performance
+        # 10. Threading performance
         {
             "name": "Threading Scaling",
             "implementations": [implementations["betterfftw_default"], implementations["pyfftw_measure"]],
-            "transform_types": [transform_types["fft2"]],
+            "transform_types": [transform_types["fft2"]],  # 2D transform
             "sizes": [512, 1024, 2048],
-            "dimensions": [dimensions["2d_square"]],
+            "dimensions": [dimensions["2d_square"]],  # 2D arrays
             "thread_counts": thread_counts,
             "n_runs": 3
         },
         
-        # 7. Non-power-of-two performance
+        # 11. Non-power-of-two performance
         {
             "name": "Non-Power-of-Two Performance",
             "implementations": [implementations["numpy"], implementations["betterfftw_default"]],
-            "transform_types": [transform_types["fft"]],
+            "transform_types": [transform_types["fft"]],  # 1D transform only
             "sizes": [128, 256, 512, 1024] + [100, 101, 127, 253, 509, 1001],  # Powers of 2 + non-powers
             "n_runs": 5
         },
         
-        # 8. Repeated transform performance
+        # 12. Repeated transform performance - 1D
         {
-            "name": "Repeated Transform Performance",
+            "name": "Repeated Transform Performance (1D)",
             "implementations": [implementations["numpy"], implementations["betterfftw_default"]],
-            "transform_types": [transform_types["fft2"]],
-            "sizes": [512, 1024],
-            "dimensions": [dimensions["2d_square"]],
+            "transform_types": [transform_types["fft"]],  # 1D transform
+            "sizes": [1024, 2048],
+            "dimensions": [dimensions["1d"]],  # 1D arrays
             "repetition_counts": [1, 2, 5, 10, 20, 50, 100],
             "thread_count": 4
         },
         
-        # 9. Planning strategy comparison
+        # 13. Repeated transform performance - 2D
         {
-            "name": "Planning Strategy Comparison",
+            "name": "Repeated Transform Performance (2D)",
+            "implementations": [implementations["numpy"], implementations["betterfftw_default"]],
+            "transform_types": [transform_types["fft2"]],  # 2D transform
+            "sizes": [512, 1024],
+            "dimensions": [dimensions["2d_square"]],  # 2D arrays
+            "repetition_counts": [1, 2, 5, 10, 20, 50, 100],
+            "thread_count": 4
+        },
+        
+        # 14. Planning strategy comparison - 1D
+        {
+            "name": "Planning Strategy Comparison (1D)",
             "implementations": [implementations["betterfftw_default"], implementations["pyfftw_estimate"]],
-            "transform_types": [transform_types["fft2"]],
+            "transform_types": [transform_types["fft"]],  # 1D transform
             "sizes": [128, 256, 512, 1024],
-            "dimensions": [dimensions["2d_square"]],
+            "dimensions": [dimensions["1d"]],  # 1D arrays
             "n_runs": 5
         },
         
-        # 10. Data type comparison
+        # 15. Planning strategy comparison - 2D
         {
-            "name": "Data Type Comparison",
+            "name": "Planning Strategy Comparison (2D)",
+            "implementations": [implementations["betterfftw_default"], implementations["pyfftw_estimate"]],
+            "transform_types": [transform_types["fft2"]],  # 2D transform
+            "sizes": [128, 256, 512, 1024],
+            "dimensions": [dimensions["2d_square"]],  # 2D arrays
+            "n_runs": 5
+        },
+        
+        # 16. Data type comparison - 1D
+        {
+            "name": "Data Type Comparison (1D)",
             "implementations": [implementations["numpy"], implementations["betterfftw_default"]],
-            "transform_types": [transform_types["fft"], transform_types["fft2"]],
-            "sizes": [512, 1024],
-            "dimensions": [dimensions["1d"], dimensions["2d_square"]],
+            "transform_types": [transform_types["fft"]],  # 1D transform
+            "sizes": [512, 1024, 2048],
+            "dimensions": [dimensions["1d"]],  # 1D arrays
+            "n_runs": 5
+        },
+        
+        # 17. Data type comparison - 2D
+        {
+            "name": "Data Type Comparison (2D)",
+            "implementations": [implementations["numpy"], implementations["betterfftw_default"]],
+            "transform_types": [transform_types["fft2"]],  # 2D transform
+            "sizes": [128, 256, 512],
+            "dimensions": [dimensions["2d_square"]],  # 2D arrays
             "n_runs": 5
         }
     ]
-    
     # Run each benchmark
     results = {}
     for benchmark in benchmarks:
