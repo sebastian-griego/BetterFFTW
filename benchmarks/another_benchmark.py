@@ -1412,7 +1412,7 @@ if __name__ == "__main__":
     for benchmark in benchmarks:
         name = benchmark["name"]
         
-        if "Basic Performance" in name or "Real FFT Performance" in name or "3D FFT Performance" in name:
+        if "Performance" in name and not any(x in name for x in ["Repeated", "Non-Power-of-Two"]):
             results[name] = run_benchmark_suite(benchmark)
         elif "Threading Scaling" in name:
             results[name] = run_threading_scaling_benchmark(benchmark)
