@@ -15,7 +15,13 @@ from . import core
 
 # keep track of whether we're registered as the default backend
 _registered_as_default = False
-
+# Store original NumPy functions before any patching
+_original_numpy_fftfreq = np.fft.fftfreq
+_original_numpy_rfftfreq = np.fft.rfftfreq
+_original_numpy_fftshift = np.fft.fftshift
+_original_numpy_ifftshift = np.fft.ifftshift
+_original_numpy_hfft = np.fft.hfft
+_original_numpy_ihfft = np.fft.ihfft
 # Dictionary to store overridden NumPy functions
 _original_numpy_funcs = {}
 # Dictionary to store overridden SciPy functions
@@ -353,86 +359,14 @@ def hfft(a, n=None, axis=-1, norm=None):
     """
     Compute the FFT of a signal that has Hermitian symmetry.
     
-    For now, we fall back to NumPy's implementation, but with potential
-    future optimization.
-    
     Parameters are the same as numpy.fft.hfft
     """
     try:
-        # fall back to numpy for now
-        return np.fft.hfft(a, n=n, axis=axis, norm=norm)
+        # Use original NumPy function
+        return _original_numpy_hfft(a, n=n, axis=axis, norm=norm)
     except Exception as e:
         warnings.warn(f"BetterFFTW hfft failed, falling back to NumPy: {str(e)}")
-        return np.fft.hfft(a, n=n, axis=axis, norm=norm)
-
-
-def ihfft(a, n=None, axis=-1, norm=None):
-    """
-    Compute the inverse FFT of a signal that has Hermitian symmetry.
-    
-    For now, we fall back to NumPy's implementation, but with potential
-    future optimization.
-    
-    Parameters are the same as numpy.fft.ihfft
-    """
-    try:
-        # fall back to numpy for now
-        return np.fft.ihfft(a, n=n, axis=axis, norm=norm)
-    except Exception as e:
-        warnings.warn(f"BetterFFTW ihfft failed, falling back to NumPy: {str(e)}")
-        return np.fft.ihfft(a, n=n, axis=axis, norm=norm)
-
-
-# Direct pass-through for utility functions that don't need FFTW acceleration
-def fftfreq(n, d=1.0):
-    """
-    Return the Discrete Fourier Transform sample frequencies.
-    
-    Parameters are the same as numpy.fft.fftfreq
-    """
-    return np.fft.fftfreq(n, d)
-
-
-def rfftfreq(n, d=1.0):
-    """
-    Return the Discrete Fourier Transform sample frequencies for real input.
-    
-    Parameters are the same as numpy.fft.rfftfreq
-    """
-    return np.fft.rfftfreq(n, d)
-
-
-def fftshift(x, axes=None):
-    """
-    Shift the zero-frequency component to the center of the spectrum.
-    
-    Parameters are the same as numpy.fft.fftshift
-    """
-    return np.fft.fftshift(x, axes)
-
-
-def ifftshift(x, axes=None):
-    """
-    Inverse of fftshift.
-    
-    Parameters are the same as numpy.fft.ifftshift
-    """
-    return np.fft.ifftshift(x, axes)
-
-# Add these utility functions to interface.py
-
-def hfft(a, n=None, axis=-1, norm=None):
-    """
-    Compute the FFT of a signal that has Hermitian symmetry.
-    
-    Parameters are the same as numpy.fft.hfft
-    """
-    try:
-        # Fall back to numpy for now - we can optimize this in future versions
-        return np.fft.hfft(a, n=n, axis=axis, norm=norm)
-    except Exception as e:
-        warnings.warn(f"BetterFFTW hfft failed, falling back to NumPy: {str(e)}")
-        return np.fft.hfft(a, n=n, axis=axis, norm=norm)
+        return _original_numpy_hfft(a, n=n, axis=axis, norm=norm)
 
 
 def ihfft(a, n=None, axis=-1, norm=None):
@@ -442,11 +376,11 @@ def ihfft(a, n=None, axis=-1, norm=None):
     Parameters are the same as numpy.fft.ihfft
     """
     try:
-        # Fall back to numpy for now - we can optimize this in future versions
-        return np.fft.ihfft(a, n=n, axis=axis, norm=norm)
+        # Use original NumPy function
+        return _original_numpy_ihfft(a, n=n, axis=axis, norm=norm)
     except Exception as e:
         warnings.warn(f"BetterFFTW ihfft failed, falling back to NumPy: {str(e)}")
-        return np.fft.ihfft(a, n=n, axis=axis, norm=norm)
+        return _original_numpy_ihfft(a, n=n, axis=axis, norm=norm)
 
 
 # Direct pass-through for utility functions that don't need FFTW acceleration
@@ -456,7 +390,7 @@ def fftfreq(n, d=1.0):
     
     Parameters are the same as numpy.fft.fftfreq
     """
-    return np.fft.fftfreq(n, d)
+    return _original_numpy_fftfreq(n, d)
 
 
 def rfftfreq(n, d=1.0):
@@ -465,7 +399,7 @@ def rfftfreq(n, d=1.0):
     
     Parameters are the same as numpy.fft.rfftfreq
     """
-    return np.fft.rfftfreq(n, d)
+    return _original_numpy_rfftfreq(n, d)
 
 
 def fftshift(x, axes=None):
@@ -474,7 +408,7 @@ def fftshift(x, axes=None):
     
     Parameters are the same as numpy.fft.fftshift
     """
-    return np.fft.fftshift(x, axes)
+    return _original_numpy_fftshift(x, axes)
 
 
 def ifftshift(x, axes=None):
@@ -483,7 +417,7 @@ def ifftshift(x, axes=None):
     
     Parameters are the same as numpy.fft.ifftshift
     """
-    return np.fft.ifftshift(x, axes)
+    return _original_numpy_ifftshift(x, axes)
 
 
 # ----------------------------------------------------------------------------------
