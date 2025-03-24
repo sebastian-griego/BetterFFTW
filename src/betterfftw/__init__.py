@@ -28,7 +28,6 @@ Advanced usage:
 """
 
 __version__ = '0.1.0'
-
 # Import core functionality
 from .core import (
     # Main FFT functions
@@ -43,6 +42,8 @@ from .core import (
     # Configuration functions
     set_num_threads, set_planner_effort,
     get_stats, clear_cache,
+    set_threading_thresholds, set_threading_limits,
+    set_max_cache_size,
     
     # Core class for advanced users
     SmartFFTW

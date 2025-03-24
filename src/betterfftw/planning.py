@@ -128,13 +128,14 @@ def analyze_array(array: np.ndarray) -> Dict[str, Any]:
     
     return stats
 
-
 def get_optimal_planner(array: np.ndarray, 
                        usage_count: int = 1, 
                        time_critical: bool = False,
                        prefer_speed: bool = True) -> str:
     """
     Determine the optimal planning strategy based on array and usage pattern.
+    
+    Benchmarks show FFTW_ESTIMATE provides the best overall performance in most cases.
     
     Args:
         array: The array that will be transformed
@@ -145,42 +146,20 @@ def get_optimal_planner(array: np.ndarray,
     Returns:
         The recommended FFTW planner strategy
     """
-    # get system and array info
-    sys_info = get_system_info()
+    # Get array shape information
     array_info = analyze_array(array)
+    size = array_info['size']
+    is_power_of_two = array_info['is_power_of_two']
     
-    # basic heuristics for different scenarios
-    
-    # 1. For one-off, small transforms, use ESTIMATE regardless
-    if usage_count <= 1 and array_info['size'] < SMALL_ARRAY_THRESHOLD:
-        return PLANNER_ESTIMATE
-    
-    # 2. For time-critical applications with low repetition, prefer ESTIMATE
-    if time_critical and usage_count < MEDIUM_USAGE_THRESHOLD:
-        return PLANNER_ESTIMATE
-    
-    # 3. For repeated use, prefer at least MEASURE
-    if usage_count >= MEDIUM_USAGE_THRESHOLD:
-        # For frequently used transforms, use PATIENT on systems with enough resources
-        if usage_count >= HIGH_USAGE_THRESHOLD:
-            if sys_info['available_memory_gb'] > HIGH_MEMORY_THRESHOLD:
-                return PLANNER_PATIENT
-            return PLANNER_MEASURE
-        
-        # For moderately used transforms, MEASURE is usually a good balance
+    # For extremely frequent usage of large, non-power-of-2 arrays, 
+    # MEASURE might be worth it
+    if (not is_power_of_two and 
+        size > 32768 and 
+        usage_count > 1000 and 
+        not time_critical):
         return PLANNER_MEASURE
     
-    # 4. For arrays with difficult dimensions (not power of 2, large prime factors)
-    if not array_info['is_power_of_two'] and not array_info['has_small_primes']:
-        # These benefit more from thorough planning
-        if array_info['size'] > MEDIUM_ARRAY_THRESHOLD:
-            return PLANNER_MEASURE
-    
-    # 5. Default case - use ESTIMATE for small arrays, MEASURE for larger ones
-    if array_info['size'] > SMALL_ARRAY_THRESHOLD:
-        return PLANNER_MEASURE
-    
-    # 6. Fall back to ESTIMATE for everything else
+    # For all other cases, ESTIMATE is optimal based on benchmarks
     return PLANNER_ESTIMATE
 
 

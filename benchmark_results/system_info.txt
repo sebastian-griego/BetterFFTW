@@ -7,12 +7,12 @@ simd_capabilities: ['unknown']
 cpu_count: 12
 physical_cpu_count: 10
 memory_gb: 15.69
-memory_available_gb: 2.51
+memory_available_gb: 3.09
 cache_info:
 numpy_version: 1.26.3
 scipy_version: 1.13.1
 pyfftw_version: 0.15.0
 betterfftw_version: 0.1.0
-timestamp: 2025-03-22 16:06:51
-estimated_memory_bandwidth_gb_s: 5.14
+timestamp: 2025-03-24 15:25:36
+estimated_memory_bandwidth_gb_s: 4.99
 numpy_mkl: False

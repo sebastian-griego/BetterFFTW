@@ -13,7 +13,6 @@ import numpy as np
 import pyfftw
 import atexit
 from typing import Dict, Tuple, Optional, Union, Any, List, Callable
-
 # enable the PyFFTW cache
 pyfftw.interfaces.cache.enable()
 
@@ -26,8 +25,17 @@ DEFAULT_CACHE_TIMEOUT = 60  # seconds to keep plans in cache
 
 # thresholds for auto-configuration
 SIZE_THREADING_THRESHOLD = 1024 * 1024  # When to use multi-threading - increased from 32768
-MIN_REPEAT_FOR_MEASURE = 10  # number of uses before upgrading plan - increased from 3
+MIN_REPEAT_FOR_MEASURE = 20  # increased threshold to favor ESTIMATE in most cases
 AUTO_ALIGN = True  # auto-align arrays for FFTW
+
+# threading thresholds for different array sizes
+THREADING_SMALL_THRESHOLD = 16384    # 16K elements
+THREADING_MEDIUM_THRESHOLD = 65536   # 64K elements
+THREADING_LARGE_THRESHOLD = 262144   # 256K elements
+THREADING_MAX_SMALL = 1              # Max threads for small arrays
+THREADING_MAX_MEDIUM = 2             # Max threads for medium arrays
+THREADING_MAX_MULTI_DIM = 4          # Max threads for multi-dimensional arrays
+MAX_CACHE_SIZE = 1000                # Maximum number of plans to keep in cache
 
 # we'll use a timer to periodically clean the cache
 _cache_cleaning_interval = 300  # 5 minutes
@@ -38,7 +46,6 @@ _background_optimizing = False  # flag for background optimization
 
 # wisdom file for persistent planning
 WISDOM_FILE = os.path.expanduser("~/.betterfftw_wisdom")
-
 
 def _exit_handler():
     """Save wisdom and clean up resources when exiting."""
@@ -69,7 +76,6 @@ class SmartFFTW:
         """Initialize SmartFFTW instance."""
         # optional instance-specific settings can go here
         pass
-    
     @classmethod
     def clear_cache(cls, older_than: Optional[float] = None):
         """
@@ -79,9 +85,20 @@ class SmartFFTW:
             older_than: Clear plans unused for this many seconds (None = clear all)
         """
         with _cache_lock:
-            now = time.time()
-            keys_to_remove = []
-            
+            # Check if cache size exceeds maximum
+            if len(cls._plan_cache) > MAX_CACHE_SIZE:
+                # Sort by last used time and keep only most recent plans
+                keys_by_age = sorted(cls._last_used.items(), key=lambda x: x[1], reverse=True)
+                keys_to_keep = keys_by_age[:MAX_CACHE_SIZE//2]  # Keep half the max
+                keys_to_keep_dict = dict(keys_to_keep)
+                
+                # Remove keys not in the keep list
+                for cache_dict in [cls._plan_cache, cls._call_count, cls._plan_quality, cls._last_used]:
+                    for key in list(cache_dict.keys()):
+                        if key not in keys_to_keep_dict:
+                            del cache_dict[key]
+                return
+                
             if older_than is None:
                 # clear everything
                 cls._plan_cache.clear()
@@ -89,12 +106,23 @@ class SmartFFTW:
                 cls._last_used.clear()
                 cls._plan_quality.clear()
                 return
-                
-            # selectively clear based on age
-            for key, last_used in cls._last_used.items():
-                if now - last_used > older_than:
-                    keys_to_remove.append(key)
                     
+            # selectively clear based on age
+            now = time.time()
+            keys_to_remove = []
+            
+            for key, last_used in cls._last_used.items():
+                age = now - last_used
+                if age > older_than:
+                    # Frequently used plans get longer lifetime
+                    count = cls._call_count.get(key, 0)
+                    if count > MIN_REPEAT_FOR_MEASURE:
+                        # Only remove if much older
+                        if age > older_than * 2:
+                            keys_to_remove.append(key)
+                    else:
+                        keys_to_remove.append(key)
+                        
             for key in keys_to_remove:
                 if key in cls._plan_cache:
                     del cls._plan_cache[key]
@@ -104,7 +132,6 @@ class SmartFFTW:
                     del cls._last_used[key]
                 if key in cls._plan_quality:
                     del cls._plan_quality[key]
-    
     @classmethod
     def _get_cache_key(cls, array: np.ndarray, n: Optional[Union[int, Tuple[int, ...]]] = None, 
                      axis: Union[int, Tuple[int, ...]] = -1, 
@@ -115,7 +142,6 @@ class SmartFFTW:
         dtype = array.dtype
         # include transform type in key to differentiate between fft, ifft, rfft, etc.
         return (transform_type, shape, dtype, n, axis, norm)
-    
     @classmethod
     def _select_threads(cls, array: np.ndarray) -> int:
         """
@@ -124,19 +150,67 @@ class SmartFFTW:
         small arrays use 1 thread to avoid overhead, large arrays use multiple.
         """
         size = np.prod(array.shape)
-        if size < SIZE_THREADING_THRESHOLD:
-            return 1
+        dimensions = len(array.shape)
+        
+        # Small arrays - single thread is always best
+        if size < THREADING_SMALL_THRESHOLD:
+            return THREADING_MAX_SMALL
+        
+        # Medium arrays - limited threading benefit
+        if size < THREADING_MEDIUM_THRESHOLD:
+            return min(THREADING_MAX_MEDIUM, DEFAULT_THREADS)
+        
+        # Large 1D arrays - limited scaling
+        if dimensions == 1 and size < THREADING_LARGE_THRESHOLD:
+            return min(THREADING_MAX_MEDIUM, DEFAULT_THREADS)
+        
+        # Large multi-dimensional arrays - better thread scaling
+        if dimensions >= 2:
+            return min(THREADING_MAX_MULTI_DIM, DEFAULT_THREADS)
+        
+        # Very large arrays - use default thread count
         return DEFAULT_THREADS
-    
     @classmethod
     def _should_upgrade_plan(cls, key: Tuple) -> bool:
         """Determine if we should upgrade to a more thorough planning strategy."""
-        # if we've called this size multiple times, it's worth optimizing
+        # Get usage info
         count = cls._call_count.get(key, 0)
         current_quality = cls._plan_quality.get(key, DEFAULT_PLANNER)
         
-        if count >= MIN_REPEAT_FOR_MEASURE and current_quality == DEFAULT_PLANNER:
+        # Already using better than ESTIMATE, no need to upgrade further
+        if current_quality != DEFAULT_PLANNER:
+            return False
+        
+        # Unpack key to analyze transform characteristics
+        transform_type, shape, dtype, n, axis, norm = key
+        
+        # For single-dimensional arrays, extract shape properly
+        if isinstance(shape, tuple) and len(shape) > 0:
+            dimensions = shape
+        else:
+            dimensions = (shape,)
+        
+        size = np.prod(dimensions)
+        
+        # For small arrays, never upgrade regardless of usage
+        if size < 8192:
+            return False
+        
+        # Check if dimensions have non-power-of-2 sizes
+        has_complex_factors = False
+        for d in dimensions:
+            if isinstance(d, (int, np.integer)) and d > 1:
+                if (d & (d-1)) != 0:  # Not a power of 2
+                    has_complex_factors = True
+                    break
+        
+        # Only upgrade if:
+        # 1. Called many more times than our threshold AND
+        # 2. Has complex factors that might benefit from better planning
+        if count >= MIN_REPEAT_FOR_MEASURE * 3 and has_complex_factors:
             return True
+        
+        # Default to keeping ESTIMATE
         return False
     @classmethod
     def _create_plan(cls, array: np.ndarray, builder_func: Callable, 
@@ -1183,13 +1257,48 @@ class SmartFFTW:
         """Set the number of calls before upgrading plans."""
         global MIN_REPEAT_FOR_MEASURE
         MIN_REPEAT_FOR_MEASURE = count
+    @classmethod
+    def set_threading_thresholds(cls, small=16384, medium=65536, large=262144):
+        """
+        Configure array size thresholds for threading decisions.
+        
+        Args:
+            small: Arrays smaller than this use single thread
+            medium: Arrays smaller than this use limited threads
+            large: Arrays smaller than this have thread count based on dimensionality
+        """
+        global THREADING_SMALL_THRESHOLD, THREADING_MEDIUM_THRESHOLD, THREADING_LARGE_THRESHOLD
+        THREADING_SMALL_THRESHOLD = small
+        THREADING_MEDIUM_THRESHOLD = medium
+        THREADING_LARGE_THRESHOLD = large
         
     @classmethod
-    def set_threading_threshold(cls, size: int):
-        """Set the array size threshold for using multiple threads."""
-        global SIZE_THREADING_THRESHOLD
-        SIZE_THREADING_THRESHOLD = size
+    def set_threading_limits(cls, small_max=1, medium_max=2, multi_dim_max=4):
+        """
+        Configure maximum thread counts for different array sizes.
         
+        Args:
+            small_max: Maximum threads for small arrays
+            medium_max: Maximum threads for medium arrays
+            multi_dim_max: Maximum threads for multi-dimensional arrays
+        """
+        global THREADING_MAX_SMALL, THREADING_MAX_MEDIUM, THREADING_MAX_MULTI_DIM
+        THREADING_MAX_SMALL = small_max
+        THREADING_MAX_MEDIUM = medium_max
+        THREADING_MAX_MULTI_DIM = multi_dim_max
+        
+    @classmethod
+    def set_max_cache_size(cls, size=1000):
+        """
+        Set the maximum number of plans to keep in cache.
+        
+        When the cache exceeds this size, older/less used plans will be removed.
+        
+        Args:
+            size: Maximum number of plans to keep in cache
+        """
+        global MAX_CACHE_SIZE
+        MAX_CACHE_SIZE = size
     @classmethod
     def get_stats(cls) -> Dict:
         """Get statistics about the plan cache."""
@@ -1272,6 +1381,47 @@ def rfftn(array, s=None, axes=None, norm=None, threads=None, planner=None):
 def irfftn(array, s=None, axes=None, norm=None, threads=None, planner=None):
     """Smart inverse n-dimensional real FFT function with auto-optimization."""
     return SmartFFTW.irfftn(array, s, axes, norm, threads, planner)
+
+def set_threading_thresholds(small=16384, medium=65536, large=262144):
+    """
+    Configure array size thresholds for threading decisions.
+    
+    Args:
+        small: Arrays smaller than this use single thread
+        medium: Arrays smaller than this use limited threads
+        large: Arrays smaller than this have thread count based on dimensionality
+    """
+    global THREADING_SMALL_THRESHOLD, THREADING_MEDIUM_THRESHOLD, THREADING_LARGE_THRESHOLD
+    THREADING_SMALL_THRESHOLD = small
+    THREADING_MEDIUM_THRESHOLD = medium
+    THREADING_LARGE_THRESHOLD = large
+
+def set_threading_limits(small_max=1, medium_max=2, multi_dim_max=4):
+    """
+    Configure maximum thread counts for different array sizes.
+    
+    Args:
+        small_max: Maximum threads for small arrays
+        medium_max: Maximum threads for medium arrays
+        multi_dim_max: Maximum threads for multi-dimensional arrays
+    """
+    global THREADING_MAX_SMALL, THREADING_MAX_MEDIUM, THREADING_MAX_MULTI_DIM
+    THREADING_MAX_SMALL = small_max
+    THREADING_MAX_MEDIUM = medium_max
+    THREADING_MAX_MULTI_DIM = multi_dim_max
+
+def set_max_cache_size(size=1000):
+    """
+    Set the maximum number of plans to keep in cache.
+    
+    When the cache exceeds this size, older/less used plans will be removed.
+    
+    Args:
+        size: Maximum number of plans to keep in cache
+    """
+    global MAX_CACHE_SIZE
+    MAX_CACHE_SIZE = size
+
 # Utility functions
 def empty_aligned(shape, dtype=np.complex128, n=None):
     """Create an empty aligned array for optimal FFTW performance."""
@@ -1280,6 +1430,7 @@ def empty_aligned(shape, dtype=np.complex128, n=None):
 def empty_aligned_like(array, n=None):
     """Create an empty aligned array like another array."""
     return pyfftw.empty_aligned(array.shape, array.dtype, n)
+
 def byte_align(array, n=None, copy=True):
     """
     Align an existing array to memory boundary for optimal FFTW performance.
