@@ -18,7 +18,7 @@ pyfftw.interfaces.cache.enable()
 
 # configuration constants with smart defaults
 DEFAULT_THREADS = min(multiprocessing.cpu_count(), 4)  # reasonable default
-DEFAULT_PLANNER = 'FFTW_ESTIMATE'  # fast planning initially - changed from MEASURE
+DEFAULT_PLANNER = 'FFTW_MEASURE'  # Consistently performs best in benchmarks
 MEASURE_PLANNER = 'FFTW_MEASURE'  # thorough planning for repeated use
 PATIENCE_PLANNER = 'FFTW_PATIENT'  # thorough planning for critical performance
 DEFAULT_CACHE_TIMEOUT = 60  # seconds to keep plans in cache
@@ -205,7 +205,6 @@ class SmartFFTW:
     @classmethod
     def _should_upgrade_plan(cls, key: Tuple) -> bool:
         """Determine if we should upgrade to a more thorough planning strategy."""
-        # Get usage info
         count = cls._call_count.get(key, 0)
         current_quality = cls._plan_quality.get(key, DEFAULT_PLANNER)
         
@@ -224,10 +223,6 @@ class SmartFFTW:
         
         size = np.prod(dimensions)
         
-        # For very small arrays, never upgrade
-        if size < 4096:
-            return False
-        
         # Check for non-power-of-2 dimensions
         has_complex_factors = False
         for d in dimensions:
@@ -236,20 +231,15 @@ class SmartFFTW:
                     has_complex_factors = True
                     break
         
-        # For large non-power-of-2 arrays, upgrade more aggressively
-        # (benchmark shows MEASURE performs better for these cases)
-        if has_complex_factors and size >= 8192 and count >= 3:
+        # For non-power-of-2 arrays, ALWAYS upgrade to MEASURE
+        # This is the main change to address the benchmark results
+        if has_complex_factors:
             return True
         
-        # For multi-dimensional arrays, consider upgrading
-        if len(dimensions) >= 2 and size >= 32768 and count >= MIN_REPEAT_FOR_MEASURE:
+        # For frequently used arrays, consider upgrading
+        if count >= MIN_REPEAT_FOR_MEASURE:
             return True
         
-        # For very frequently used arrays, upgrade
-        if count >= MIN_REPEAT_FOR_MEASURE * 2:
-            return True
-        
-        # Default is to keep current planner
         return False
     @classmethod
     def _create_plan(cls, array: np.ndarray, builder_func: Callable, 
