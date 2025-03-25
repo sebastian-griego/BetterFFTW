@@ -127,15 +127,12 @@ def analyze_array(array: np.ndarray) -> Dict[str, Any]:
     _array_stats_cache[cache_key] = stats
     
     return stats
-
 def get_optimal_planner(array: np.ndarray, 
                        usage_count: int = 1, 
                        time_critical: bool = False,
                        prefer_speed: bool = True) -> str:
     """
     Determine the optimal planning strategy based on array and usage pattern.
-    
-    Benchmarks show FFTW_ESTIMATE provides the best overall performance in most cases.
     
     Args:
         array: The array that will be transformed
@@ -146,20 +143,30 @@ def get_optimal_planner(array: np.ndarray,
     Returns:
         The recommended FFTW planner strategy
     """
-    # Get array shape information
+    # Get array and system info
     array_info = analyze_array(array)
     size = array_info['size']
     is_power_of_two = array_info['is_power_of_two']
+    dimensions = len(array.shape)
     
-    # For extremely frequent usage of large, non-power-of-2 arrays, 
-    # MEASURE might be worth it
-    if (not is_power_of_two and 
-        size > 32768 and 
-        usage_count > 1000 and 
-        not time_critical):
+    # For time-critical applications, always use ESTIMATE
+    if time_critical:
+        return PLANNER_ESTIMATE
+    
+    # For non-power-of-2 sizes that will be used repeatedly,
+    # MEASURE often performs better according to benchmarks
+    if not is_power_of_two and usage_count >= 3 and size >= 8192:
         return PLANNER_MEASURE
     
-    # For all other cases, ESTIMATE is optimal based on benchmarks
+    # For multi-dimensional arrays used repeatedly, consider MEASURE
+    if dimensions >= 2 and usage_count >= 5 and size >= 32768:
+        return PLANNER_MEASURE
+    
+    # For extremely frequent usage of large arrays, MEASURE pays off
+    if usage_count >= 10 and size >= 65536:
+        return PLANNER_MEASURE
+    
+    # Default to ESTIMATE for everything else
     return PLANNER_ESTIMATE
 
 

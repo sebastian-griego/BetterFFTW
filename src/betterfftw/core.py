@@ -25,7 +25,7 @@ DEFAULT_CACHE_TIMEOUT = 60  # seconds to keep plans in cache
 
 # thresholds for auto-configuration
 SIZE_THREADING_THRESHOLD = 1024 * 1024  # When to use multi-threading - increased from 32768
-MIN_REPEAT_FOR_MEASURE = 20  # increased threshold to favor ESTIMATE in most cases
+MIN_REPEAT_FOR_MEASURE = 5  # increased threshold to favor ESTIMATE in most cases
 AUTO_ALIGN = True  # auto-align arrays for FFTW
 
 # threading thresholds for different array sizes
@@ -87,42 +87,67 @@ class SmartFFTW:
         with _cache_lock:
             # Check if cache size exceeds maximum
             if len(cls._plan_cache) > MAX_CACHE_SIZE:
-                # Sort by last used time and keep only most recent plans
-                keys_by_age = sorted(cls._last_used.items(), key=lambda x: x[1], reverse=True)
-                keys_to_keep = keys_by_age[:MAX_CACHE_SIZE//2]  # Keep half the max
-                keys_to_keep_dict = dict(keys_to_keep)
+                # Sort by combination of usage count and recency
+                keys_by_importance = []
+                now = time.time()
+                
+                for key in cls._plan_cache.keys():
+                    count = cls._call_count.get(key, 0)
+                    last_used = cls._last_used.get(key, 0)
+                    age = now - last_used
+                    
+                    # Higher count and lower age = more important
+                    importance = count / (age + 1)  # Add 1 to avoid division by zero
+                    keys_by_importance.append((key, importance))
+                
+                # Sort by importance (higher value = more important)
+                keys_by_importance.sort(key=lambda x: x[1], reverse=True)
+                
+                # Keep the most important half
+                keys_to_keep = [k for k, _ in keys_by_importance[:MAX_CACHE_SIZE//2]]
                 
                 # Remove keys not in the keep list
                 for cache_dict in [cls._plan_cache, cls._call_count, cls._plan_quality, cls._last_used]:
-                    for key in list(cache_dict.keys()):
-                        if key not in keys_to_keep_dict:
-                            del cache_dict[key]
-                return
+                    keys_to_remove = [k for k in cache_dict.keys() if k not in keys_to_keep]
+                    for key in keys_to_remove:
+                        del cache_dict[key]
                 
+                return
+            
+            # Standard age-based cleanup
             if older_than is None:
-                # clear everything
+                # Clear everything
                 cls._plan_cache.clear()
                 cls._call_count.clear()
                 cls._last_used.clear()
                 cls._plan_quality.clear()
                 return
-                    
-            # selectively clear based on age
+            
+            # Selectively clear based on age and usage
             now = time.time()
             keys_to_remove = []
             
             for key, last_used in cls._last_used.items():
                 age = now - last_used
+                
                 if age > older_than:
-                    # Frequently used plans get longer lifetime
                     count = cls._call_count.get(key, 0)
-                    if count > MIN_REPEAT_FOR_MEASURE:
-                        # Only remove if much older
+                    quality = cls._plan_quality.get(key, DEFAULT_PLANNER)
+                    
+                    # More frequently used plans get longer retention
+                    if count > MIN_REPEAT_FOR_MEASURE and quality != DEFAULT_PLANNER:
+                        # High-quality plans for frequently used transforms get the longest life
+                        if age > older_than * 3:
+                            keys_to_remove.append(key)
+                    elif count > MIN_REPEAT_FOR_MEASURE:
+                        # Frequently used plans get longer life
                         if age > older_than * 2:
                             keys_to_remove.append(key)
                     else:
+                        # Standard expiration
                         keys_to_remove.append(key)
-                        
+            
+            # Remove identified keys
             for key in keys_to_remove:
                 if key in cls._plan_cache:
                     del cls._plan_cache[key]
@@ -145,31 +170,38 @@ class SmartFFTW:
     @classmethod
     def _select_threads(cls, array: np.ndarray) -> int:
         """
-        Auto-select optimal thread count based on array size.
+        Auto-select optimal thread count based on array size and dimensionality.
         
-        small arrays use 1 thread to avoid overhead, large arrays use multiple.
+        Benchmarks show good scaling for larger arrays with multiple dimensions.
         """
         size = np.prod(array.shape)
         dimensions = len(array.shape)
         
-        # Small arrays - single thread is always best
-        if size < THREADING_SMALL_THRESHOLD:
-            return THREADING_MAX_SMALL
+        # Very small arrays - single thread is always best
+        if size < 8192:  # 8K elements
+            return 1
         
-        # Medium arrays - limited threading benefit
-        if size < THREADING_MEDIUM_THRESHOLD:
-            return min(THREADING_MAX_MEDIUM, DEFAULT_THREADS)
+        # For medium arrays, thread scaling depends on dimensions
+        if size < 65536:  # 64K elements
+            if dimensions == 1:
+                return 1  # 1D arrays don't benefit much from threading at this size
+            else:
+                return min(2, DEFAULT_THREADS)  # Some benefit for 2D/3D
         
-        # Large 1D arrays - limited scaling
-        if dimensions == 1 and size < THREADING_LARGE_THRESHOLD:
-            return min(THREADING_MAX_MEDIUM, DEFAULT_THREADS)
+        # For large arrays, more aggressive threading
+        if size < 262144:  # 256K elements
+            if dimensions == 1:
+                return min(2, DEFAULT_THREADS)  # Some benefit for large 1D
+            else:
+                return min(4, DEFAULT_THREADS)  # Good scaling for 2D/3D
         
-        # Large multi-dimensional arrays - better thread scaling
-        if dimensions >= 2:
-            return min(THREADING_MAX_MULTI_DIM, DEFAULT_THREADS)
-        
-        # Very large arrays - use default thread count
-        return DEFAULT_THREADS
+        # For very large arrays, use more threads
+        if dimensions == 1:
+            return min(4, DEFAULT_THREADS)  # 1D scales moderately
+        elif dimensions == 2:
+            return min(8, DEFAULT_THREADS)  # 2D scales well up to 8 threads
+        else:
+            return DEFAULT_THREADS  # 3D+ can use all available threads
     @classmethod
     def _should_upgrade_plan(cls, key: Tuple) -> bool:
         """Determine if we should upgrade to a more thorough planning strategy."""
@@ -181,10 +213,10 @@ class SmartFFTW:
         if current_quality != DEFAULT_PLANNER:
             return False
         
-        # Unpack key to analyze transform characteristics
+        # Extract key information
         transform_type, shape, dtype, n, axis, norm = key
         
-        # For single-dimensional arrays, extract shape properly
+        # Normalize shape to handle different key formats
         if isinstance(shape, tuple) and len(shape) > 0:
             dimensions = shape
         else:
@@ -192,11 +224,11 @@ class SmartFFTW:
         
         size = np.prod(dimensions)
         
-        # For small arrays, never upgrade regardless of usage
-        if size < 8192:
+        # For very small arrays, never upgrade
+        if size < 4096:
             return False
         
-        # Check if dimensions have non-power-of-2 sizes
+        # Check for non-power-of-2 dimensions
         has_complex_factors = False
         for d in dimensions:
             if isinstance(d, (int, np.integer)) and d > 1:
@@ -204,13 +236,20 @@ class SmartFFTW:
                     has_complex_factors = True
                     break
         
-        # Only upgrade if:
-        # 1. Called many more times than our threshold AND
-        # 2. Has complex factors that might benefit from better planning
-        if count >= MIN_REPEAT_FOR_MEASURE * 3 and has_complex_factors:
+        # For large non-power-of-2 arrays, upgrade more aggressively
+        # (benchmark shows MEASURE performs better for these cases)
+        if has_complex_factors and size >= 8192 and count >= 3:
             return True
         
-        # Default to keeping ESTIMATE
+        # For multi-dimensional arrays, consider upgrading
+        if len(dimensions) >= 2 and size >= 32768 and count >= MIN_REPEAT_FOR_MEASURE:
+            return True
+        
+        # For very frequently used arrays, upgrade
+        if count >= MIN_REPEAT_FOR_MEASURE * 2:
+            return True
+        
+        # Default is to keep current planner
         return False
     @classmethod
     def _create_plan(cls, array: np.ndarray, builder_func: Callable, 
