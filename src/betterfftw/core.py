@@ -18,10 +18,10 @@ pyfftw.interfaces.cache.enable()
 
 # configuration constants with smart defaults
 DEFAULT_THREADS = min(multiprocessing.cpu_count(), 4)  # reasonable default
-DEFAULT_PLANNER = 'FFTW_MEASURE'  # Consistently performs best in benchmarks
+DEFAULT_PLANNER = 'FFTW_ESTIMATE'  # Fastest in latest benchmark
 MEASURE_PLANNER = 'FFTW_MEASURE'  # thorough planning for repeated use
 PATIENCE_PLANNER = 'FFTW_PATIENT'  # thorough planning for critical performance
-DEFAULT_CACHE_TIMEOUT = 60  # seconds to keep plans in cache
+DEFAULT_CACHE_TIMEOUT = 300  # seconds to keep plans in cache (from 60)
 
 # thresholds for auto-configuration
 SIZE_THREADING_THRESHOLD = 1024 * 1024  # When to use multi-threading - increased from 32768
@@ -38,7 +38,7 @@ THREADING_MAX_MULTI_DIM = 4          # Max threads for multi-dimensional arrays
 MAX_CACHE_SIZE = 1000                # Maximum number of plans to keep in cache
 
 # we'll use a timer to periodically clean the cache
-_cache_cleaning_interval = 300  # 5 minutes
+_cache_cleaning_interval = 900  # 15 minutes (from 5 minutes)
 _cache_lock = threading.RLock()  # prevent race conditions
 _optimization_queue = []  # queue for background optimizations
 _optimization_lock = threading.RLock()  # lock for the optimization queue
@@ -172,39 +172,25 @@ class SmartFFTW:
         """
         Auto-select optimal thread count based on array size and dimensionality.
         
-        Benchmarks show good scaling for larger arrays with multiple dimensions.
+        Benchmarks show threads are often counterproductive, so be conservative.
         """
         size = np.prod(array.shape)
         dimensions = len(array.shape)
         
-        # Very small arrays - single thread is always best
-        if size < 8192:  # 8K elements
+        # For almost all cases, single thread is fastest
+        if size < 262144:  # 256K elements
             return 1
         
-        # For medium arrays, thread scaling depends on dimensions
-        if size < 65536:  # 64K elements
-            if dimensions == 1:
-                return 1  # 1D arrays don't benefit much from threading at this size
-            else:
-                return min(2, DEFAULT_THREADS)  # Some benefit for 2D/3D
+        # Only use threads for very large multi-dimensional arrays
+        if dimensions >= 2 and size >= 1048576:  # 1M elements
+            return min(2, DEFAULT_THREADS)  # Still be conservative
         
-        # For large arrays, more aggressive threading
-        if size < 262144:  # 256K elements
-            if dimensions == 1:
-                return min(2, DEFAULT_THREADS)  # Some benefit for large 1D
-            else:
-                return min(4, DEFAULT_THREADS)  # Good scaling for 2D/3D
-        
-        # For very large arrays, use more threads
-        if dimensions == 1:
-            return min(4, DEFAULT_THREADS)  # 1D scales moderately
-        elif dimensions == 2:
-            return min(8, DEFAULT_THREADS)  # 2D scales well up to 8 threads
-        else:
-            return DEFAULT_THREADS  # 3D+ can use all available threads
+        # Default to single thread
+        return 1
     @classmethod
     def _should_upgrade_plan(cls, key: Tuple) -> bool:
         """Determine if we should upgrade to a more thorough planning strategy."""
+        # Get usage info
         count = cls._call_count.get(key, 0)
         current_quality = cls._plan_quality.get(key, DEFAULT_PLANNER)
         
@@ -223,23 +209,12 @@ class SmartFFTW:
         
         size = np.prod(dimensions)
         
-        # Check for non-power-of-2 dimensions
-        has_complex_factors = False
-        for d in dimensions:
-            if isinstance(d, (int, np.integer)) and d > 1:
-                if (d & (d-1)) != 0:  # Not a power of 2
-                    has_complex_factors = True
-                    break
-        
-        # For non-power-of-2 arrays, ALWAYS upgrade to MEASURE
-        # This is the main change to address the benchmark results
-        if has_complex_factors:
+        # Benchmarks show ESTIMATE is actually fastest for most cases
+        # Only upgrade for very large, repeatedly used transforms
+        if size > 65536 and count >= MIN_REPEAT_FOR_MEASURE * 2:
             return True
         
-        # For frequently used arrays, consider upgrading
-        if count >= MIN_REPEAT_FOR_MEASURE:
-            return True
-        
+        # For everything else, stick with ESTIMATE
         return False
     @classmethod
     def _create_plan(cls, array: np.ndarray, builder_func: Callable, 
