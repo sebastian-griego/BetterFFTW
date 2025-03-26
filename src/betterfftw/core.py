@@ -10,11 +10,15 @@ import time
 import multiprocessing
 import threading
 import numpy as np
+import concurrent.futures
 import pyfftw
 import atexit
+import logging
 from typing import Dict, Tuple, Optional, Union, Any, List, Callable
 # enable the PyFFTW cache
 pyfftw.interfaces.cache.enable()
+
+logger = logging.getLogger("betterfftw.core")
 
 # configuration constants with smart defaults
 DEFAULT_THREADS = min(multiprocessing.cpu_count(), 4)  # reasonable default
@@ -27,6 +31,7 @@ DEFAULT_CACHE_TIMEOUT = 300  # seconds to keep plans in cache (from 60)
 SIZE_THREADING_THRESHOLD = 1024 * 1024  # When to use multi-threading - increased from 32768
 MIN_REPEAT_FOR_MEASURE = 5  # trigger MEASURE planning after this many repeats
 AUTO_ALIGN = True  # auto-align arrays for FFTW
+USE_NUMPY_FOR_NON_POWER_OF_TWO = True  # Set True to use NumPy for non-power-of-2 sizes (typically 2x faster)
 
 # threading thresholds for different array sizes
 THREADING_SMALL_THRESHOLD = 16384    # 16K elements
@@ -44,6 +49,14 @@ _optimization_queue = []  # queue for background optimizations
 _optimization_lock = threading.RLock()  # lock for the optimization queue
 _background_optimizing = False  # flag for background optimization
 
+# Add to the top of the file:
+_optimization_executor = concurrent.futures.ThreadPoolExecutor(
+    max_workers=2,  # Start with a small number
+    thread_name_prefix="betterfftw_opt"
+)
+_optimization_futures = {}  # Track running optimizations
+
+
 # wisdom file for persistent planning
 WISDOM_FILE = os.path.expanduser("~/.betterfftw_wisdom")
 
@@ -51,8 +64,9 @@ def _exit_handler():
     """Save wisdom and clean up resources when exiting."""
     try:
         SmartFFTW.export_wisdom(WISDOM_FILE)
-    except Exception:
-        pass  # don't crash if we can't save wisdom
+        _optimization_executor.shutdown(wait=False)
+    except Exception as e:
+        logger.warning(f"Exit handler error: {str(e)}")
 
 
 # register the exit handler
@@ -175,6 +189,14 @@ class SmartFFTW:
         dtype = array.dtype
         # include transform type in key to differentiate between fft, ifft, rfft, etc.
         return (transform_type, shape, dtype, n, axis, norm)
+    
+    @classmethod
+    def _is_non_power_of_two(cls, dimensions):
+        """Check if any dimension is not a power of 2."""
+        if not dimensions:
+            return False
+        return any((dim & (dim - 1)) != 0 for dim in dimensions if dim > 0)
+    
     @classmethod
     def _select_threads(cls, array: np.ndarray) -> int:
         """
@@ -186,23 +208,19 @@ class SmartFFTW:
         size = np.prod(array.shape)
         dims = array.ndim
         
-        # For small arrays, single thread is fastest (no change)
+        # For small arrays, use a single thread.
         if size < 262144:  # 256K elements
             return 1
         
-        # Use up to 4 threads for large 3D arrays
-        if dims >= 3 and size >= 1048576:  # 1M elements
+        # For large 2D or 3D arrays, use up to 4 threads (but do not exceed DEFAULT_THREADS).
+        if dims >= 2 and size >= 1048576:  # 1M elements or more
             return min(DEFAULT_THREADS, 4)
         
-        # Use up to 4 threads for large 2D arrays 
-        if dims == 2 and size >= 1048576:  # 1M elements
-            return min(DEFAULT_THREADS, 4)
-        
-        # Use up to 2 threads for very large 1D arrays
-        if dims == 1 and size >= 2097152:  # 2M elements
+        # For very large 1D arrays, consider using 2 threads.
+        if dims == 1 and size >= 2097152:  # 2M elements or more
             return min(DEFAULT_THREADS, 2)
         
-        # Default to single thread
+        # Otherwise, default to a single thread.
         return 1
     @classmethod
     def _should_upgrade_plan(cls, key: Tuple) -> bool:
@@ -216,29 +234,27 @@ class SmartFFTW:
         count = cls._call_count.get(key, 0)
         current_quality = cls._plan_quality.get(key, DEFAULT_PLANNER)
         
-        # Already using better than ESTIMATE, no need to upgrade further
+        # If already upgraded, don't upgrade again
         if current_quality != DEFAULT_PLANNER:
             return False
-        
-        # Extract key information
+
+        # Unpack key information
         transform_type, shape, dtype, n, axis, norm = key
-        
-        # Determine dimensions tuple
+        # Ensure dimensions is a tuple
         dimensions = shape if isinstance(shape, tuple) else (shape,)
         size = np.prod(dimensions)
         
-        # Check if any dimension is not a power of 2
-        non_power_of_two = any((dim & (dim - 1)) != 0 for dim in dimensions)
+        # Check if any dimension is non-power-of-two.
+        non_power_of_two = any((d & (d - 1)) != 0 for d in dimensions if d > 0)
         
-        # If any dimension is non-power-of-2, upgrade sooner after a few repeats
+        # For non-power-of-two sizes, upgrade after MIN_REPEAT_FOR_MEASURE calls.
         if non_power_of_two and count >= MIN_REPEAT_FOR_MEASURE:
             return True
-            
-        # For very large sizes, still upgrade after more repeats
+
+        # For very large transforms (mostly power-of-2) upgrade later.
         if size > 65536 and count >= MIN_REPEAT_FOR_MEASURE * 2:
             return True
-            
-        # For everything else, stick with ESTIMATE
+
         return False
     @classmethod
     def _create_plan(cls, array: np.ndarray, builder_func: Callable, 
@@ -303,24 +319,129 @@ class SmartFFTW:
                              axis: Union[int, Tuple[int, ...]] = -1,
                              norm: Optional[str] = None,
                              **kwargs):
-        """Schedule a plan for optimization in the background."""
+        """Schedule a plan for optimization in the background using thread pool."""
         with _optimization_lock:
-            # add to optimization queue if not already there
-            for item in _optimization_queue:
-                if item[0] == key:
-                    return  # already scheduled
+            # Don't reoptimize if already in progress or completed
+            if key in _optimization_futures:
+                future = _optimization_futures[key]
+                if not future.done():
+                    return  # Already being optimized
             
-            # make a copy of the array to avoid holding references
+            # Make a copy of the array to avoid holding references
             array_copy = np.array(array, copy=True)
             
-            # add to queue
-            _optimization_queue.append((key, array_copy, builder_func, n, axis, norm, kwargs))
+            # Submit optimization task to thread pool
+            future = _optimization_executor.submit(
+                cls._optimize_plan, 
+                key, array_copy, builder_func, n, axis, norm, kwargs
+            )
+            _optimization_futures[key] = future
             
-            # start optimization thread if not running
-            global _background_optimizing
-            if not _background_optimizing:
-                _background_optimizing = True
-                threading.Thread(target=cls._background_optimize, daemon=True).start()
+            # Optional: Add a callback to handle completion
+            future.add_done_callback(lambda f: cls._optimization_completed(key, f))
+
+    @classmethod
+    def _optimization_completed(cls, key, future):
+        """Handle optimization completion."""
+        try:
+            # Check if optimization succeeded
+            if future.exception() is None:
+                logger.debug(f"Plan optimization completed successfully for {key[0]}")
+            else:
+                logger.warning(f"Plan optimization failed for {key[0]}: {future.exception()}")
+        except concurrent.futures.CancelledError:
+            logger.debug(f"Plan optimization cancelled for {key[0]}")
+
+    @classmethod
+    def get_memory_usage(cls):
+        """Get current memory usage of the plan cache."""
+        with _cache_lock:
+            # Estimate memory usage of cached plans
+            total_bytes = 0
+            plan_count = len(cls._plan_cache)
+            
+            # Sample a few plans to estimate average size
+            sample_size = min(10, plan_count)
+            if sample_size > 0:
+                sampled_keys = list(cls._plan_cache.keys())[:sample_size]
+                for key in sampled_keys:
+                    plan = cls._plan_cache[key]
+                    # PyFFTW plan objects have input and output arrays
+                    if hasattr(plan, 'input_array') and hasattr(plan, 'output_array'):
+                        total_bytes += plan.input_array.nbytes
+                        total_bytes += plan.output_array.nbytes
+                
+                # Extrapolate to estimate total
+                avg_bytes_per_plan = total_bytes / sample_size
+                estimated_total = avg_bytes_per_plan * plan_count
+            else:
+                estimated_total = 0
+            
+            return {
+                'plan_count': plan_count,
+                'estimated_bytes': estimated_total,
+                'estimated_mb': estimated_total / (1024 * 1024)
+            }
+
+    # Initialize performance metrics
+    _performance_metrics = {
+        'calls': 0,
+        'cache_hits': 0, 
+        'cache_misses': 0,
+        'plan_upgrades': 0,
+        'numpy_fallbacks': 0,
+        'execution_time': 0.0,
+        'planning_time': 0.0,
+    }
+
+    @classmethod
+    def reset_metrics(cls):
+        """Reset performance metrics."""
+        for key in cls._performance_metrics:
+            cls._performance_metrics[key] = 0 if isinstance(cls._performance_metrics[key], int) else 0.0
+
+    @classmethod
+    def get_metrics(cls):
+        """Get performance metrics."""
+        with _cache_lock:
+            metrics = cls._performance_metrics.copy()
+            
+            # Add derived metrics
+            if metrics['calls'] > 0:
+                metrics['cache_hit_rate'] = metrics['cache_hits'] / metrics['calls']
+                metrics['avg_execution_time'] = metrics['execution_time'] / metrics['calls']
+            
+            # Add cache stats
+            metrics['cache_size'] = len(cls._plan_cache)
+            metrics['unique_shapes'] = len(set(key[1] for key in cls._plan_cache.keys()))
+            
+            return metrics
+
+    @classmethod
+    def _optimize_plan(cls, key, array, builder_func, n, axis, norm, kwargs):
+        """Perform actual plan optimization."""
+        # Check if this plan is still in use
+        with _cache_lock:
+            if key not in cls._last_used:
+                logger.debug(f"Skipping optimization for unused plan {key[0]}")
+                return  # Plan was removed, skip it
+            
+            # Create optimized plan
+            try:
+                optimized_plan = cls._create_plan(
+                    array, builder_func, n, axis, norm,
+                    threads=cls._select_threads(array),
+                    planner=MEASURE_PLANNER,
+                    **kwargs
+                )
+                # Update cache with optimized plan
+                cls._plan_cache[key] = optimized_plan
+                cls._plan_quality[key] = MEASURE_PLANNER
+                logger.debug(f"Optimized plan for {key[0]} with shape {array.shape}")
+            except Exception as e:
+                logger.warning(f"Plan optimization failed: {str(e)}")
+                raise  # Re-raise for the future to handle
+
     @classmethod
     def _background_optimize(cls):
         """Background thread to optimize plans."""
@@ -368,13 +489,14 @@ class SmartFFTW:
            planner: Optional[str] = None) -> np.ndarray:
         """
         Compute FFT of input array with smart optimization.
-        
+
         This method automatically:
+        - Uses NumPy for non-power-of-2 sizes when enabled
         - Reuses cached plans for the same array shape
         - Selects optimal thread count based on array size
         - Progressively optimizes plans for frequently used shapes
-        - Falls back to NumPy for sizes where FFTW underperforms
-        
+        - Adaptively falls back to NumPy for specific sizes where it outperforms FFTW
+
         Args:
             array: Input array
             n: Length of transformed axis
@@ -386,6 +508,12 @@ class SmartFFTW:
         Returns:
             Transformed array
         """
+        # Fallback: if configured to use NumPy for non-power-of-two inputs, do so.
+        if USE_NUMPY_FOR_NON_POWER_OF_TWO:
+            dimensions = [array.shape[axis] if n is None else n]
+            if cls._is_non_power_of_two(dimensions):
+                return np.fft.fft(array, n=n, axis=axis, norm=norm)
+        
         # generate cache key for this transform
         key = cls._get_cache_key(array, n, axis, norm, 'fft')
         
@@ -465,7 +593,7 @@ class SmartFFTW:
                             # Add to fallback set
                             cls._numpy_fallback_keys.add(key)
                             # Log the fallback decision
-                            print(f"BetterFFTW: Using NumPy for size {shape} - better performance detected")
+                            logger.info(f"BetterFFTW: Using NumPy for size {shape} - better performance detected")
             
             # PyFFTW doesn't handle normalization exactly like NumPy, so we need to handle it manually
             if norm == 'ortho':
@@ -498,6 +626,12 @@ class SmartFFTW:
         Returns:
             Inverse-transformed array
         """
+        # Fallback: if configured to use NumPy for non-power-of-two inputs, do so.
+        if USE_NUMPY_FOR_NON_POWER_OF_TWO:
+            dimensions = [array.shape[axis] if n is None else n]
+            if cls._is_non_power_of_two(dimensions):
+                return np.fft.ifft(array, n=n, axis=axis, norm=norm)
+                
         # generate cache key for this transform
         key = cls._get_cache_key(array, n, axis, norm, 'ifft')
         
@@ -562,6 +696,13 @@ class SmartFFTW:
         Returns:
             Transformed array
         """
+        
+        # Fallback: if configured to use NumPy for non-power-of-two inputs, do so.
+        if USE_NUMPY_FOR_NON_POWER_OF_TWO:
+            dimensions = [array.shape[axis] if n is None else n]
+            if cls._is_non_power_of_two(dimensions):
+                return np.fft.rfft(array, n=n, axis=axis, norm=norm)
+        
         # generate cache key for this transform
         key = cls._get_cache_key(array, n, axis, norm, 'rfft')
         
@@ -626,6 +767,12 @@ class SmartFFTW:
         Returns:
             Inverse-transformed real array
         """
+        # Fallback: if configured to use NumPy for non-power-of-two inputs, do so.
+        if USE_NUMPY_FOR_NON_POWER_OF_TWO:  
+            dimensions = [array.shape[axis] if n is None else n]
+            if cls._is_non_power_of_two(dimensions):
+                return np.fft.irfft(array, n=n, axis=axis, norm=norm)
+        
         # generate cache key for this transform
         key = cls._get_cache_key(array, n, axis, norm, 'irfft')
         
@@ -690,6 +837,17 @@ class SmartFFTW:
         Returns:
             Transformed array
         """
+        
+        # Fallback: if configured to use NumPy for non-power-of-two inputs, do so.
+        if USE_NUMPY_FOR_NON_POWER_OF_TWO:
+            if s is not None:
+                dimensions = s
+            else:
+                dimensions = [array.shape[ax] for ax in axes]
+    
+            if cls._is_non_power_of_two(dimensions):
+                return np.fft.fft2(array, s=s, axes=axes, norm=norm)        
+        
         # generate cache key for this transform
         key = cls._get_cache_key(array, s, axes, norm, 'fft2')
         
@@ -758,9 +916,17 @@ class SmartFFTW:
         Returns:
             Inverse-transformed array
         """
+        # Fallback: if configured to use NumPy for non-power-of-two inputs, do so.
+        if USE_NUMPY_FOR_NON_POWER_OF_TWO:
+            if s is not None:
+                dimensions = s
+            else:
+                dimensions = [array.shape[ax] for ax in axes]
+    
+            if cls._is_non_power_of_two(dimensions):
+                return np.fft.ifft2(array, s=s, axes=axes, norm=norm)
         # generate cache key for this transform
         key = cls._get_cache_key(array, s, axes, norm, 'ifft2')
-        
         with _cache_lock:
             # track call frequency for this shape
             cls._call_count[key] = cls._call_count.get(key, 0) + 1
@@ -826,6 +992,15 @@ class SmartFFTW:
         Returns:
             Transformed array
         """
+        # Fallback: if configured to use NumPy for non-power-of-two inputs, do so.
+        if USE_NUMPY_FOR_NON_POWER_OF_TWO:
+            if s is not None:
+                dimensions = s
+            else:
+                dimensions = [array.shape[ax] for ax in axes]
+            
+            if cls._is_non_power_of_two(dimensions):
+                return np.fft.rfft2(array, s=s, axes=axes, norm=norm)
         # generate cache key for this transform
         key = cls._get_cache_key(array, s, axes, norm, 'rfft2')
         
@@ -894,6 +1069,15 @@ class SmartFFTW:
         Returns:
             Inverse-transformed real array
         """
+        # Fallback: if configured to use NumPy for non-power-of-two inputs, do so.
+        if USE_NUMPY_FOR_NON_POWER_OF_TWO:
+            if s is not None:
+                dimensions = s
+            else:
+                dimensions = [array.shape[ax] for ax in axes]
+            
+            if cls._is_non_power_of_two(dimensions):
+                return np.fft.irfft2(array, s=s, axes=axes, norm=norm)
         # generate cache key for this transform
         key = cls._get_cache_key(array, s, axes, norm, 'irfft2')
         
@@ -962,6 +1146,17 @@ class SmartFFTW:
         Returns:
             Transformed array
         """
+        # Fallback: if configured to use NumPy for non-power-of-two inputs, do so.
+        if USE_NUMPY_FOR_NON_POWER_OF_TWO:
+            if s is not None:
+                dimensions = s
+            elif axes is not None:
+                dimensions = [array.shape[ax] for ax in axes]
+            else:
+                dimensions = array.shape
+            
+            if cls._is_non_power_of_two(dimensions):
+                return np.fft.fftn(array, s=s, axes=axes, norm=norm)
         # generate cache key for this transform
         key = cls._get_cache_key(array, s, axes, norm, 'fftn')
         
@@ -1035,6 +1230,17 @@ class SmartFFTW:
         Returns:
             Inverse-transformed array
         """
+        # Fallback: if configured to use NumPy for non-power-of-two inputs, do so.
+        if USE_NUMPY_FOR_NON_POWER_OF_TWO:
+            if s is not None:
+                dimensions = s
+            elif axes is not None:
+                dimensions = [array.shape[ax] for ax in axes]
+            else:
+                dimensions = array.shape
+            
+            if cls._is_non_power_of_two(dimensions):
+                return np.fft.ifftn(array, s=s, axes=axes, norm=norm)
         # generate cache key for this transform
         key = cls._get_cache_key(array, s, axes, norm, 'ifftn')
         
@@ -1108,6 +1314,18 @@ class SmartFFTW:
         Returns:
             Transformed array
         """
+        
+        # Fallback: if configured to use NumPy for non-power-of-two inputs, do so.
+        if USE_NUMPY_FOR_NON_POWER_OF_TWO:
+            if s is not None:
+                dimensions = s
+            elif axes is not None:
+                dimensions = [array.shape[ax] for ax in axes]
+            else:
+                dimensions = array.shape
+            
+            if cls._is_non_power_of_two(dimensions):
+                return np.fft.rfftn(array, s=s, axes=axes, norm=norm)
         # generate cache key for this transform
         key = cls._get_cache_key(array, s, axes, norm, 'rfftn')
         
@@ -1181,6 +1399,17 @@ class SmartFFTW:
         Returns:
             Inverse-transformed real array
         """
+        # Fallback: if configured to use NumPy for non-power-of-two inputs, do so.
+        if USE_NUMPY_FOR_NON_POWER_OF_TWO:
+            if s is not None:
+                dimensions = s
+            elif axes is not None:
+                dimensions = [array.shape[ax] for ax in axes]
+            else:
+                dimensions = array.shape
+            
+            if cls._is_non_power_of_two(dimensions):
+                return np.fft.irfftn(array, s=s, axes=axes, norm=norm)
         # generate cache key for this transform
         key = cls._get_cache_key(array, s, axes, norm, 'irfftn')
         
@@ -1249,7 +1478,7 @@ class SmartFFTW:
         try:
             # Check if file exists first
             if not os.path.exists(filename):
-                print(f"Warning: Wisdom file not found: {filename}")
+                logger.warning(f"Wisdom file not found: {filename}")
                 return False
                 
             # Read the file
@@ -1258,7 +1487,7 @@ class SmartFFTW:
                 
             # Handle empty file case
             if not wisdom_data:
-                print(f"Warning: Wisdom file is empty: {filename}")
+                logger.warning(f"Wisdom file is empty: {filename}")
                 return False
                 
             # Import the wisdom - PyFFTW expects a tuple of (bytes, bytes, bytes)
@@ -1268,7 +1497,7 @@ class SmartFFTW:
             
             return True
         except Exception as e:
-            print(f"Warning: Error importing wisdom: {str(e)}")
+            logger.warning(f"Error importing wisdom: {str(e)}")
             return False
 
     @classmethod
@@ -1294,7 +1523,7 @@ class SmartFFTW:
             # Get the wisdom
             wisdom = pyfftw.export_wisdom()
             if not wisdom or len(wisdom) < 1:
-                print("Warning: No wisdom available to export")
+                logger.warning("No wisdom available to export")
                 return False
                 
             # Create directory if it doesn't exist
@@ -1305,7 +1534,7 @@ class SmartFFTW:
             # Write wisdom to file - only write the double precision wisdom (first element)
             wisdom_bytes = wisdom[0]
             if not isinstance(wisdom_bytes, bytes):
-                print(f"Warning: Expected bytes, got {type(wisdom_bytes)}")
+                logger.warning(f"Expected bytes, got {type(wisdom_bytes)}")
                 return False
                 
             with open(filename, 'wb') as f:
@@ -1313,7 +1542,7 @@ class SmartFFTW:
                 
             return True
         except Exception as e:
-            print(f"Warning: Error exporting wisdom: {str(e)}")
+            logger.warning(f"Error exporting wisdom: {str(e)}")
             return False
     @classmethod
     def set_default_threads(cls, threads: int):
@@ -1531,7 +1760,7 @@ def byte_align(array, n=None, copy=True):
             return pyfftw.byte_align(array, n, copy)
     except Exception as e:
         # Last resort - just return the original array
-        print(f"Warning: byte_align failed: {str(e)}")
+        logger.warning(f"byte_align failed: {str(e)}")
         return np.array(array, copy=copy)
 
 def import_wisdom(filename=None):

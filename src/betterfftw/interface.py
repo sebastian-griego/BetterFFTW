@@ -554,24 +554,33 @@ def register_scipy_fft():
     but will continue gracefully if that's not possible.
     """
     try:
-        # Just try the simplest possible approach - ignore errors
-        scipy_fft.set_backend("numpy")  # First clear any existing backend
+        # Try to register our backend with scipy.fft
+        from scipy.fft import set_backend
+        # Create an instance of our backend class to register
+        backend = _FFTWBackend()
+        set_backend(backend)
         return True
-    except Exception as e:
-        # Just warn and continue - this is non-critical
-        warnings.warn(f"Note: SciPy FFT acceleration not available: {str(e)}")
+    except (ImportError, AttributeError) as e:
+        # Only log a debug message - don't warn since this isn't critical
+        # Most users don't need scipy integration
+        logger.debug(f"SciPy FFT backend registration skipped: {str(e)}")
         return True  # Return success anyway
-
+    except Exception as e:
+        # Silently continue - non-critical component
+        logger.debug(f"SciPy FFT backend registration failed: {str(e)}")
+        return True
 def unregister_scipy_fft():
     """
     Unregister BetterFFTW as the default backend for SciPy's FFT functions.
     """
     try:
-        # Just reset to default
-        scipy_fft.set_backend(None)
+        # Check if scipy_fft has the set_backend attribute first
+        if hasattr(scipy_fft, 'set_backend'):
+            # Reset to default backend
+            scipy_fft.set_backend(None)
         return True
-    except Exception as e:
-        warnings.warn(f"Note: Could not reset SciPy FFT backend: {str(e)}")
+    except Exception:
+        # Silently continue without a warning message
         return True
 
 def use_as_default_fft(register_scipy=True):

@@ -254,7 +254,6 @@ def benchmark_planners(array: np.ndarray,
     
     return results
 
-
 def optimal_transform_size(target_size: int, 
                          fast_sizes: bool = True,
                          max_increase: float = 0.2) -> int:
@@ -313,16 +312,14 @@ def optimal_transform_size(target_size: int,
         (good_size, (good_size - target_size) / target_size),  # size with small primes
     ]
     
-    # filter out candidates that exceed max_increase
+    # filter out candidates that exceed max_increase OR are smaller than target_size
     valid_candidates = [(size, diff) for size, diff in candidates 
-                      if diff <= max_increase]
+                      if diff <= max_increase and size >= target_size]
     
     if not valid_candidates:
         return target_size
     
-    # prefer powers of 2, then small primes, then smaller sizes
-    if (prev_pow2, (target_size - prev_pow2) / target_size) in valid_candidates:
-        return prev_pow2
+    # prefer powers of 2, then small primes
     if (next_pow2, (next_pow2 - target_size) / target_size) in valid_candidates:
         return next_pow2
     if (good_size, (good_size - target_size) / target_size) in valid_candidates:
@@ -330,8 +327,6 @@ def optimal_transform_size(target_size: int,
     
     # fallback to original size
     return target_size
-
-
 def optimize_transform_shape(shape: Tuple[int, ...], 
                            max_increase: float = 0.2) -> Tuple[int, ...]:
     """
