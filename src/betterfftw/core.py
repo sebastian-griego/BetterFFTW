@@ -25,7 +25,7 @@ DEFAULT_CACHE_TIMEOUT = 300  # seconds to keep plans in cache (from 60)
 
 # thresholds for auto-configuration
 SIZE_THREADING_THRESHOLD = 1024 * 1024  # When to use multi-threading - increased from 32768
-MIN_REPEAT_FOR_MEASURE = 5  # increased threshold to favor ESTIMATE in most cases
+MIN_REPEAT_FOR_MEASURE = 5  # trigger MEASURE planning after this many repeats
 AUTO_ALIGN = True  # auto-align arrays for FFTW
 
 # threading thresholds for different array sizes
@@ -58,7 +58,6 @@ def _exit_handler():
 # register the exit handler
 atexit.register(_exit_handler)
 
-
 class SmartFFTW:
     """
     Smart FFTW wrapper with automatic optimization.
@@ -71,6 +70,8 @@ class SmartFFTW:
     _call_count: Dict[Tuple, int] = {}  # track call frequency per shape
     _last_used: Dict[Tuple, float] = {}  # track when plans were last used
     _plan_quality: Dict[Tuple, str] = {}  # track current plan quality
+    _numpy_fallback_keys: set = set()  # keys where NumPy outperforms FFTW
+    _numpy_fallback_counts: Dict[Tuple, int] = {}  # track consistent performance differences
     
     def __init__(self):
         """Initialize SmartFFTW instance."""
@@ -85,6 +86,13 @@ class SmartFFTW:
             older_than: Clear plans unused for this many seconds (None = clear all)
         """
         with _cache_lock:
+            # If clearing everything, also clear fallback caches
+            if older_than is None:
+                if hasattr(cls, '_numpy_fallback_keys'):
+                    cls._numpy_fallback_keys.clear()
+                if hasattr(cls, '_numpy_fallback_counts'):
+                    cls._numpy_fallback_counts.clear()
+                
             # Check if cache size exceeds maximum
             if len(cls._plan_cache) > MAX_CACHE_SIZE:
                 # Sort by combination of usage count and recency
@@ -172,24 +180,38 @@ class SmartFFTW:
         """
         Auto-select optimal thread count based on array size and dimensionality.
         
-        Benchmarks show threads are often counterproductive, so be conservative.
+        Uses more threads for large multi-dimensional arrays while staying
+        conservative for smaller transforms where threading overhead isn't worth it.
         """
         size = np.prod(array.shape)
-        dimensions = len(array.shape)
+        dims = array.ndim
         
-        # For almost all cases, single thread is fastest
+        # For small arrays, single thread is fastest (no change)
         if size < 262144:  # 256K elements
             return 1
         
-        # Only use threads for very large multi-dimensional arrays
-        if dimensions >= 2 and size >= 1048576:  # 1M elements
-            return min(2, DEFAULT_THREADS)  # Still be conservative
+        # Use up to 4 threads for large 3D arrays
+        if dims >= 3 and size >= 1048576:  # 1M elements
+            return min(DEFAULT_THREADS, 4)
+        
+        # Use up to 4 threads for large 2D arrays 
+        if dims == 2 and size >= 1048576:  # 1M elements
+            return min(DEFAULT_THREADS, 4)
+        
+        # Use up to 2 threads for very large 1D arrays
+        if dims == 1 and size >= 2097152:  # 2M elements
+            return min(DEFAULT_THREADS, 2)
         
         # Default to single thread
         return 1
     @classmethod
     def _should_upgrade_plan(cls, key: Tuple) -> bool:
-        """Determine if we should upgrade to a more thorough planning strategy."""
+        """
+        Determine if we should upgrade to a more thorough planning strategy.
+        
+        For non-power-of-two sizes, we upgrade after fewer repeats since these
+        benefit more from MEASURE planning than power-of-2 sizes.
+        """
         # Get usage info
         count = cls._call_count.get(key, 0)
         current_quality = cls._plan_quality.get(key, DEFAULT_PLANNER)
@@ -201,19 +223,21 @@ class SmartFFTW:
         # Extract key information
         transform_type, shape, dtype, n, axis, norm = key
         
-        # Normalize shape to handle different key formats
-        if isinstance(shape, tuple) and len(shape) > 0:
-            dimensions = shape
-        else:
-            dimensions = (shape,)
-        
+        # Determine dimensions tuple
+        dimensions = shape if isinstance(shape, tuple) else (shape,)
         size = np.prod(dimensions)
         
-        # Benchmarks show ESTIMATE is actually fastest for most cases
-        # Only upgrade for very large, repeatedly used transforms
+        # Check if any dimension is not a power of 2
+        non_power_of_two = any((dim & (dim - 1)) != 0 for dim in dimensions)
+        
+        # If any dimension is non-power-of-2, upgrade sooner after a few repeats
+        if non_power_of_two and count >= MIN_REPEAT_FOR_MEASURE:
+            return True
+            
+        # For very large sizes, still upgrade after more repeats
         if size > 65536 and count >= MIN_REPEAT_FOR_MEASURE * 2:
             return True
-        
+            
         # For everything else, stick with ESTIMATE
         return False
     @classmethod
@@ -349,6 +373,7 @@ class SmartFFTW:
         - Reuses cached plans for the same array shape
         - Selects optimal thread count based on array size
         - Progressively optimizes plans for frequently used shapes
+        - Falls back to NumPy for sizes where FFTW underperforms
         
         Args:
             array: Input array
@@ -364,10 +389,16 @@ class SmartFFTW:
         # generate cache key for this transform
         key = cls._get_cache_key(array, n, axis, norm, 'fft')
         
+        # Check if this transform is known to perform better with NumPy
+        if hasattr(cls, '_numpy_fallback_keys') and key in cls._numpy_fallback_keys:
+            # Use NumPy instead of FFTW for this specific case
+            return np.fft.fft(array, n=n, axis=axis, norm=norm)
+        
         with _cache_lock:
             # track call frequency for this shape
             cls._call_count[key] = cls._call_count.get(key, 0) + 1
             cls._last_used[key] = time.time()
+            count = cls._call_count[key]
             
             # get or create plan
             if key in cls._plan_cache:
@@ -391,8 +422,50 @@ class SmartFFTW:
                 cls._plan_cache[key] = fft_obj
                 cls._plan_quality[key] = planner
             
-            # Execute the transform
+            # time the FFTW execution 
+            start_time = time.time()
             result = fft_obj(array)
+            exec_time = time.time() - start_time
+            
+            # Check performance of non-power-of-2 transforms that should have been optimized
+            transform_type, shape, dtype, n, axis, norm = key
+            dimensions = shape if isinstance(shape, tuple) else (shape,)
+            non_power_of_two = any((dim & (dim - 1)) != 0 for dim in dimensions)
+            size = np.prod(dimensions)
+            
+            # If this is a non-power-of-2 transform that's been optimized,
+            # check if NumPy might be faster
+            if (non_power_of_two and 
+                count > MIN_REPEAT_FOR_MEASURE and 
+                cls._plan_quality.get(key) == MEASURE_PLANNER and
+                size > 8192):
+                
+                # Only benchmark every few calls to avoid constant overhead
+                if count % 5 == 0 and not hasattr(cls, '_numpy_fallback_keys'):
+                    cls._numpy_fallback_keys = set()
+                    
+                if hasattr(cls, '_numpy_fallback_keys') and count % 5 == 0:
+                    # Time NumPy's FFT on a copy of the array
+                    array_copy = np.array(array, copy=True)
+                    numpy_start = time.time()
+                    np.fft.fft(array_copy, n=n, axis=axis, norm=norm)
+                    numpy_time = time.time() - numpy_start
+                    
+                    # If NumPy is consistently faster by a significant margin,
+                    # add this key to our fallback list
+                    if numpy_time < exec_time * 0.9:  # NumPy is >10% faster
+                        if not hasattr(cls, '_numpy_fallback_counts'):
+                            cls._numpy_fallback_counts = {}
+                        
+                        cls._numpy_fallback_counts[key] = cls._numpy_fallback_counts.get(key, 0) + 1
+                        
+                        # If NumPy is consistently faster over multiple checks,
+                        # switch to using NumPy for this transform
+                        if cls._numpy_fallback_counts.get(key, 0) >= 3:
+                            # Add to fallback set
+                            cls._numpy_fallback_keys.add(key)
+                            # Log the fallback decision
+                            print(f"BetterFFTW: Using NumPy for size {shape} - better performance detected")
             
             # PyFFTW doesn't handle normalization exactly like NumPy, so we need to handle it manually
             if norm == 'ortho':

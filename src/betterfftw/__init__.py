@@ -84,8 +84,13 @@ def use_as_default(register_scipy=True):
     intelligently selects between planning strategies (ESTIMATE for speed, 
     MEASURE for efficiency) and thread counts based on your specific workload.
     
-    For non-power-of-2 sizes and frequently repeated transforms, the library
-    automatically switches to more optimized planning modes when beneficial.
+    Key features:
+    - For non-power-of-2 sizes, the library automatically switches to optimized
+      planning after just a few repeats to ensure consistent speedups
+    - Multi-threading is applied intelligently: small FFTs use a single thread to 
+      avoid overhead, large multi-dimensional FFTs leverage multiple cores
+    - Adaptive fallback: In rare cases where NumPy might outperform FFTW for a 
+      specific size, the library can detect this and automatically use NumPy
     
     Args:
         register_scipy: Whether to also register for SciPy's FFT functions.
