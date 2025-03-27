@@ -99,7 +99,7 @@ _config = {
         'large_threshold': 262144,
         'small_max_threads': 1,
         'medium_max_threads': 2,
-        'multi_dim_max_threads': 4,
+        'multi_dim_max_threads': 8,
     },
     'fallback': {
         'use_numpy_for_non_power_of_two': True,
