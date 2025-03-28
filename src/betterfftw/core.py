@@ -31,7 +31,7 @@ DEFAULT_CACHE_TIMEOUT = 300  # seconds to keep plans in cache (from 60)
 SIZE_THREADING_THRESHOLD = 1024 * 1024  # When to use multi-threading - increased from 32768
 MIN_REPEAT_FOR_MEASURE = 5  # trigger MEASURE planning after this many repeats
 AUTO_ALIGN = True  # auto-align arrays for FFTW
-USE_NUMPY_FOR_NON_POWER_OF_TWO = True  # Set True to use NumPy for non-power-of-2 sizes (typically 2x faster)
+USE_NUMPY_FOR_NON_POWER_OF_TWO = False  #
 
 # threading thresholds for different array sizes
 THREADING_SMALL_THRESHOLD = 16384    # 16K elements
