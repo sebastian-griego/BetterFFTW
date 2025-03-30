@@ -19,39 +19,39 @@ from typing import Dict, Tuple, Optional, Union, Any, List, Callable
 pyfftw.interfaces.cache.enable()
 
 logger = logging.getLogger("betterfftw.core")
-
 # configuration constants with smart defaults
 DEFAULT_THREADS = min(multiprocessing.cpu_count(), 4)  # reasonable default
 DEFAULT_PLANNER = 'FFTW_ESTIMATE'  # Fastest in latest benchmark
 MEASURE_PLANNER = 'FFTW_MEASURE'  # thorough planning for repeated use
 PATIENCE_PLANNER = 'FFTW_PATIENT'  # thorough planning for critical performance
-DEFAULT_CACHE_TIMEOUT = 300  # seconds to keep plans in cache (from 60)
+DEFAULT_CACHE_TIMEOUT = 1200  # seconds to keep plans in cache (from 300)
+NON_POW2_SIZE_THRESHOLD = 32768  # Size threshold for non-power-of-2 planning strategy
+
 
 # thresholds for auto-configuration
 SIZE_THREADING_THRESHOLD = 1024 * 1024  # When to use multi-threading - increased from 32768
-MIN_REPEAT_FOR_MEASURE = 5  # trigger MEASURE planning after this many repeats
+MIN_REPEAT_FOR_MEASURE = 2  # trigger MEASURE planning after this many repeats
 AUTO_ALIGN = True  # auto-align arrays for FFTW
-USE_NUMPY_FOR_NON_POWER_OF_TWO = False  #
 
 # threading thresholds for different array sizes
-THREADING_SMALL_THRESHOLD = 16384    # 16K elements
-THREADING_MEDIUM_THRESHOLD = 65536   # 64K elements
-THREADING_LARGE_THRESHOLD = 262144   # 256K elements
+THREADING_SMALL_THRESHOLD = 8192     # 8K elements
+THREADING_MEDIUM_THRESHOLD = 32768   # 32K elements
+THREADING_LARGE_THRESHOLD = 131072   # 128K elements
 THREADING_MAX_SMALL = 1              # Max threads for small arrays
-THREADING_MAX_MEDIUM = 2             # Max threads for medium arrays
-THREADING_MAX_MULTI_DIM = 4          # Max threads for multi-dimensional arrays
-MAX_CACHE_SIZE = 1000                # Maximum number of plans to keep in cache
+THREADING_MAX_MEDIUM = 4             # Max threads for medium arrays
+THREADING_MAX_MULTI_DIM = 16         # Max threads for multi-dimensional arrays
+MAX_CACHE_SIZE = 2000                # Maximum number of plans to keep in cache
 
 # we'll use a timer to periodically clean the cache
-_cache_cleaning_interval = 900  # 15 minutes (from 5 minutes)
+_cache_cleaning_interval = 1800  # 30 minutes (from 15 minutes)
 _cache_lock = threading.RLock()  # prevent race conditions
 _optimization_queue = []  # queue for background optimizations
 _optimization_lock = threading.RLock()  # lock for the optimization queue
 _background_optimizing = False  # flag for background optimization
 
-# Add to the top of the file:
+# Thread pool for background optimizations
 _optimization_executor = concurrent.futures.ThreadPoolExecutor(
-    max_workers=2,  # Start with a small number
+    max_workers=4,  # Increase from 2 to 4
     thread_name_prefix="betterfftw_opt"
 )
 _optimization_futures = {}  # Track running optimizations
@@ -196,66 +196,82 @@ class SmartFFTW:
         if not dimensions:
             return False
         return any((dim & (dim - 1)) != 0 for dim in dimensions if dim > 0)
-    
+    @classmethod
+    def _get_optimal_planner_for_shape(cls, dimensions, ndim=1):
+        """Determine optimal planner based on array shape characteristics"""
+        # Check if any dimension is non-power-of-two
+        non_power_of_two = any((d & (d - 1)) != 0 for d in dimensions if d > 0)
+        size = np.prod(dimensions)
+        
+        if non_power_of_two:
+            # Non-power-of-2 sizes get MEASURE immediately - critical for performance
+            return MEASURE_PLANNER
+        elif ndim >= 2 and size > 32768:
+            # Large multidimensional arrays may benefit from MEASURE
+            return MEASURE_PLANNER if size > 262144 else DEFAULT_PLANNER
+        else:
+            # Power-of-2 1D arrays do well with ESTIMATE
+            return DEFAULT_PLANNER
     @classmethod
     def _select_threads(cls, array: np.ndarray) -> int:
-        """
-        Auto-select optimal thread count based on array size and dimensionality.
-        
-        Uses more threads for large multi-dimensional arrays while staying
-        conservative for smaller transforms where threading overhead isn't worth it.
-        """
+        """Auto-select optimal thread count based on array size and dimensionality."""
         size = np.prod(array.shape)
         dims = array.ndim
         
-        # For small arrays, use a single thread.
-        if size < 262144:  # 256K elements
+        # Non-power-of-two check for better thread allocation
+        non_power_of_two = any((dim & (dim - 1)) != 0 for dim in array.shape if dim > 0)
+        
+        # For small arrays, single thread is faster due to overhead
+        if size < THREADING_SMALL_THRESHOLD:
             return 1
         
-        # For large 2D or 3D arrays, use up to 4 threads (but do not exceed DEFAULT_THREADS).
-        if dims >= 2 and size >= 1048576:  # 1M elements or more
-            return min(DEFAULT_THREADS, 4)
+        # For 1D arrays, use limited threading
+        if dims == 1:
+            if size < THREADING_MEDIUM_THRESHOLD:
+                return 1
+            elif size < THREADING_LARGE_THRESHOLD:
+                return min(DEFAULT_THREADS, 2)
+            else:
+                return min(DEFAULT_THREADS, 4)
         
-        # For very large 1D arrays, consider using 2 threads.
-        if dims == 1 and size >= 2097152:  # 2M elements or more
-            return min(DEFAULT_THREADS, 2)
+        # For 2D arrays, more aggressive threading
+        if dims == 2:
+            # Non-power-of-2 can benefit from more threads due to higher complexity
+            if non_power_of_two and size >= THREADING_MEDIUM_THRESHOLD:
+                return min(DEFAULT_THREADS, THREADING_MAX_MULTI_DIM)
+            elif size < THREADING_MEDIUM_THRESHOLD:
+                return min(DEFAULT_THREADS, 2)
+            else:
+                return min(DEFAULT_THREADS, 8)
         
-        # Otherwise, default to a single thread.
-        return 1
+        # For 3D+ arrays, use even more threads
+        return min(DEFAULT_THREADS, THREADING_MAX_MULTI_DIM)
     @classmethod
     def _should_upgrade_plan(cls, key: Tuple) -> bool:
         """
         Determine if we should upgrade to a more thorough planning strategy.
-        
-        For non-power-of-two sizes, we upgrade after fewer repeats since these
-        benefit more from MEASURE planning than power-of-2 sizes.
         """
         # Get usage info
         count = cls._call_count.get(key, 0)
         current_quality = cls._plan_quality.get(key, DEFAULT_PLANNER)
         
-        # If already upgraded, don't upgrade again
+        # If already using MEASURE or better, don't upgrade
         if current_quality != DEFAULT_PLANNER:
             return False
 
         # Unpack key information
         transform_type, shape, dtype, n, axis, norm = key
-        # Ensure dimensions is a tuple
         dimensions = shape if isinstance(shape, tuple) else (shape,)
-        size = np.prod(dimensions)
         
-        # Check if any dimension is non-power-of-two.
+        # Check if any dimension is non-power-of-two
         non_power_of_two = any((d & (d - 1)) != 0 for d in dimensions if d > 0)
         
-        # For non-power-of-two sizes, upgrade after MIN_REPEAT_FOR_MEASURE calls.
-        if non_power_of_two and count >= MIN_REPEAT_FOR_MEASURE:
+        # For non-power-of-two sizes, upgrade immediately - this is critical!
+        if non_power_of_two:
             return True
-
-        # For very large transforms (mostly power-of-2) upgrade later.
-        if size > 65536 and count >= MIN_REPEAT_FOR_MEASURE * 2:
-            return True
-
-        return False
+        
+        # For power-of-2 sizes, upgrade after MIN_REPEAT_FOR_MEASURE calls
+        return count >= MIN_REPEAT_FOR_MEASURE
     @classmethod
     def _create_plan(cls, array: np.ndarray, builder_func: Callable, 
                     n: Optional[Union[int, Tuple[int, ...]]] = None, 
@@ -508,12 +524,7 @@ class SmartFFTW:
         Returns:
             Transformed array
         """
-        # Fallback: if configured to use NumPy for non-power-of-two inputs, do so.
-        if USE_NUMPY_FOR_NON_POWER_OF_TWO:
-            dimensions = [array.shape[axis] if n is None else n]
-            if cls._is_non_power_of_two(dimensions):
-                return np.fft.fft(array, n=n, axis=axis, norm=norm)
-        
+ 
         # generate cache key for this transform
         key = cls._get_cache_key(array, n, axis, norm, 'fft')
         
@@ -541,9 +552,12 @@ class SmartFFTW:
             else:
                 # create new plan
                 if planner is None:
-                    # use cached planner or default
-                    planner = cls._plan_quality.get(key, DEFAULT_PLANNER)
-                    
+                    # Check for cached planner first
+                    planner = cls._plan_quality.get(key, None)
+                    if planner is None:
+                        # Determine if this is a non-power-of-2 size
+                        dimensions = [array.shape[axis] if n is None else n]
+                        planner = cls._get_optimal_planner_for_shape(dimensions, 1)
                 fft_obj = cls._create_plan(array, pyfftw.builders.fft, n, axis, norm, threads, planner)
                 
                 # cache the plan
@@ -626,12 +640,7 @@ class SmartFFTW:
         Returns:
             Inverse-transformed array
         """
-        # Fallback: if configured to use NumPy for non-power-of-two inputs, do so.
-        if USE_NUMPY_FOR_NON_POWER_OF_TWO:
-            dimensions = [array.shape[axis] if n is None else n]
-            if cls._is_non_power_of_two(dimensions):
-                return np.fft.ifft(array, n=n, axis=axis, norm=norm)
-                
+       
         # generate cache key for this transform
         key = cls._get_cache_key(array, n, axis, norm, 'ifft')
         
@@ -653,9 +662,12 @@ class SmartFFTW:
             else:
                 # create new plan
                 if planner is None:
-                    # use cached planner or default
-                    planner = cls._plan_quality.get(key, DEFAULT_PLANNER)
-                    
+                    # Check for cached planner first
+                    planner = cls._plan_quality.get(key, None)
+                    if planner is None:
+                        # Determine if this is a non-power-of-2 size
+                        dimensions = [array.shape[axis] if n is None else n]
+                        planner = cls._get_optimal_planner_for_shape(dimensions, 1)
                 ifft_obj = cls._create_plan(array, pyfftw.builders.ifft, n, axis, norm, threads, planner)
                 
                 # cache the plan
@@ -697,12 +709,7 @@ class SmartFFTW:
             Transformed array
         """
         
-        # Fallback: if configured to use NumPy for non-power-of-two inputs, do so.
-        if USE_NUMPY_FOR_NON_POWER_OF_TWO:
-            dimensions = [array.shape[axis] if n is None else n]
-            if cls._is_non_power_of_two(dimensions):
-                return np.fft.rfft(array, n=n, axis=axis, norm=norm)
-        
+  
         # generate cache key for this transform
         key = cls._get_cache_key(array, n, axis, norm, 'rfft')
         
@@ -724,9 +731,12 @@ class SmartFFTW:
             else:
                 # create new plan
                 if planner is None:
-                    # use cached planner or default
-                    planner = cls._plan_quality.get(key, DEFAULT_PLANNER)
-                    
+                    # Check for cached planner first
+                    planner = cls._plan_quality.get(key, None)
+                    if planner is None:
+                        # Determine if this is a non-power-of-2 size
+                        dimensions = [array.shape[axis] if n is None else n]
+                        planner = cls._get_optimal_planner_for_shape(dimensions, 1)
                 rfft_obj = cls._create_plan(array, pyfftw.builders.rfft, n, axis, norm, threads, planner)
                 
                 # cache the plan
@@ -767,12 +777,7 @@ class SmartFFTW:
         Returns:
             Inverse-transformed real array
         """
-        # Fallback: if configured to use NumPy for non-power-of-two inputs, do so.
-        if USE_NUMPY_FOR_NON_POWER_OF_TWO:  
-            dimensions = [array.shape[axis] if n is None else n]
-            if cls._is_non_power_of_two(dimensions):
-                return np.fft.irfft(array, n=n, axis=axis, norm=norm)
-        
+   
         # generate cache key for this transform
         key = cls._get_cache_key(array, n, axis, norm, 'irfft')
         
@@ -794,9 +799,12 @@ class SmartFFTW:
             else:
                 # create new plan
                 if planner is None:
-                    # use cached planner or default
-                    planner = cls._plan_quality.get(key, DEFAULT_PLANNER)
-                    
+                    # Check for cached planner first
+                    planner = cls._plan_quality.get(key, None)
+                    if planner is None:
+                        # Determine if this is a non-power-of-2 size
+                        dimensions = [array.shape[axis] if n is None else n]
+                        planner = cls._get_optimal_planner_for_shape(dimensions, 1)
                 irfft_obj = cls._create_plan(array, pyfftw.builders.irfft, n, axis, norm, threads, planner)
                 
                 # cache the plan
@@ -838,16 +846,7 @@ class SmartFFTW:
             Transformed array
         """
         
-        # Fallback: if configured to use NumPy for non-power-of-two inputs, do so.
-        if USE_NUMPY_FOR_NON_POWER_OF_TWO:
-            if s is not None:
-                dimensions = s
-            else:
-                dimensions = [array.shape[ax] for ax in axes]
-    
-            if cls._is_non_power_of_two(dimensions):
-                return np.fft.fft2(array, s=s, axes=axes, norm=norm)        
-        
+
         # generate cache key for this transform
         key = cls._get_cache_key(array, s, axes, norm, 'fft2')
         
@@ -869,9 +868,12 @@ class SmartFFTW:
             else:
                 # create new plan
                 if planner is None:
-                    # use cached planner or default
-                    planner = cls._plan_quality.get(key, DEFAULT_PLANNER)
-                    
+                    # Check for cached planner first
+                    planner = cls._plan_quality.get(key, None)
+                    if planner is None:
+                        # Determine if this is a non-power-of-2 size
+                        dimensions = [array.shape[ax] for ax in axes] if s is None else s
+                        planner = cls._get_optimal_planner_for_shape(dimensions, 2)
                 fft2_obj = cls._create_plan(array, pyfftw.builders.fft2, s, axes, norm, threads, planner)
                 
                 # cache the plan
@@ -916,15 +918,7 @@ class SmartFFTW:
         Returns:
             Inverse-transformed array
         """
-        # Fallback: if configured to use NumPy for non-power-of-two inputs, do so.
-        if USE_NUMPY_FOR_NON_POWER_OF_TWO:
-            if s is not None:
-                dimensions = s
-            else:
-                dimensions = [array.shape[ax] for ax in axes]
-    
-            if cls._is_non_power_of_two(dimensions):
-                return np.fft.ifft2(array, s=s, axes=axes, norm=norm)
+     
         # generate cache key for this transform
         key = cls._get_cache_key(array, s, axes, norm, 'ifft2')
         with _cache_lock:
@@ -945,9 +939,12 @@ class SmartFFTW:
             else:
                 # create new plan
                 if planner is None:
-                    # use cached planner or default
-                    planner = cls._plan_quality.get(key, DEFAULT_PLANNER)
-                    
+                    # Check for cached planner first
+                    planner = cls._plan_quality.get(key, None)
+                    if planner is None:
+                        # Determine if this is a non-power-of-2 size
+                        dimensions = [array.shape[ax] for ax in axes] if s is None else s
+                        planner = cls._get_optimal_planner_for_shape(dimensions, 2)
                 ifft2_obj = cls._create_plan(array, pyfftw.builders.ifft2, s, axes, norm, threads, planner)
                 
                 # cache the plan
@@ -992,15 +989,7 @@ class SmartFFTW:
         Returns:
             Transformed array
         """
-        # Fallback: if configured to use NumPy for non-power-of-two inputs, do so.
-        if USE_NUMPY_FOR_NON_POWER_OF_TWO:
-            if s is not None:
-                dimensions = s
-            else:
-                dimensions = [array.shape[ax] for ax in axes]
-            
-            if cls._is_non_power_of_two(dimensions):
-                return np.fft.rfft2(array, s=s, axes=axes, norm=norm)
+    
         # generate cache key for this transform
         key = cls._get_cache_key(array, s, axes, norm, 'rfft2')
         
@@ -1022,9 +1011,12 @@ class SmartFFTW:
             else:
                 # create new plan
                 if planner is None:
-                    # use cached planner or default
-                    planner = cls._plan_quality.get(key, DEFAULT_PLANNER)
-                    
+                    # Check for cached planner first
+                    planner = cls._plan_quality.get(key, None)
+                    if planner is None:
+                        # Determine if this is a non-power-of-2 size
+                        dimensions = [array.shape[ax] if s is None else s[i] for i, ax in enumerate(axes)]
+                        planner = cls._get_optimal_planner_for_shape(dimensions, 2)
                 rfft2_obj = cls._create_plan(array, pyfftw.builders.rfft2, s, axes, norm, threads, planner)
                 
                 # cache the plan
@@ -1069,15 +1061,7 @@ class SmartFFTW:
         Returns:
             Inverse-transformed real array
         """
-        # Fallback: if configured to use NumPy for non-power-of-two inputs, do so.
-        if USE_NUMPY_FOR_NON_POWER_OF_TWO:
-            if s is not None:
-                dimensions = s
-            else:
-                dimensions = [array.shape[ax] for ax in axes]
-            
-            if cls._is_non_power_of_two(dimensions):
-                return np.fft.irfft2(array, s=s, axes=axes, norm=norm)
+
         # generate cache key for this transform
         key = cls._get_cache_key(array, s, axes, norm, 'irfft2')
         
@@ -1099,9 +1083,12 @@ class SmartFFTW:
             else:
                 # create new plan
                 if planner is None:
-                    # use cached planner or default
-                    planner = cls._plan_quality.get(key, DEFAULT_PLANNER)
-                    
+                    # Check for cached planner first
+                    planner = cls._plan_quality.get(key, None)
+                    if planner is None:
+                        # Determine if this is a non-power-of-2 size
+                        dimensions = [array.shape[ax] if s is None else s[i] for i, ax in enumerate(axes)]
+                        planner = cls._get_optimal_planner_for_shape(dimensions, 2)
                 irfft2_obj = cls._create_plan(array, pyfftw.builders.irfft2, s, axes, norm, threads, planner)
                 
                 # cache the plan
@@ -1146,17 +1133,7 @@ class SmartFFTW:
         Returns:
             Transformed array
         """
-        # Fallback: if configured to use NumPy for non-power-of-two inputs, do so.
-        if USE_NUMPY_FOR_NON_POWER_OF_TWO:
-            if s is not None:
-                dimensions = s
-            elif axes is not None:
-                dimensions = [array.shape[ax] for ax in axes]
-            else:
-                dimensions = array.shape
-            
-            if cls._is_non_power_of_two(dimensions):
-                return np.fft.fftn(array, s=s, axes=axes, norm=norm)
+
         # generate cache key for this transform
         key = cls._get_cache_key(array, s, axes, norm, 'fftn')
         
@@ -1178,9 +1155,17 @@ class SmartFFTW:
             else:
                 # create new plan
                 if planner is None:
-                    # use cached planner or default
-                    planner = cls._plan_quality.get(key, DEFAULT_PLANNER)
-                    
+                    # Check for cached planner first
+                    planner = cls._plan_quality.get(key, None)
+                    if planner is None:
+                        # Determine if this is a non-power-of-2 size
+                        if s is not None:
+                            dimensions = s
+                        elif axes is not None:
+                            dimensions = [array.shape[ax] for ax in axes]
+                        else:
+                            dimensions = array.shape
+                        planner = cls._get_optimal_planner_for_shape(dimensions, array.ndim)
                 fftn_obj = cls._create_plan(array, pyfftw.builders.fftn, s, axes, norm, threads, planner)
                 
                 # cache the plan
@@ -1230,17 +1215,7 @@ class SmartFFTW:
         Returns:
             Inverse-transformed array
         """
-        # Fallback: if configured to use NumPy for non-power-of-two inputs, do so.
-        if USE_NUMPY_FOR_NON_POWER_OF_TWO:
-            if s is not None:
-                dimensions = s
-            elif axes is not None:
-                dimensions = [array.shape[ax] for ax in axes]
-            else:
-                dimensions = array.shape
-            
-            if cls._is_non_power_of_two(dimensions):
-                return np.fft.ifftn(array, s=s, axes=axes, norm=norm)
+   
         # generate cache key for this transform
         key = cls._get_cache_key(array, s, axes, norm, 'ifftn')
         
@@ -1262,9 +1237,17 @@ class SmartFFTW:
             else:
                 # create new plan
                 if planner is None:
-                    # use cached planner or default
-                    planner = cls._plan_quality.get(key, DEFAULT_PLANNER)
-                    
+                    # Check for cached planner first
+                    planner = cls._plan_quality.get(key, None)
+                    if planner is None:
+                        # Determine if this is a non-power-of-2 size
+                        if s is not None:
+                            dimensions = s
+                        elif axes is not None:
+                            dimensions = [array.shape[ax] for ax in axes]
+                        else:
+                            dimensions = array.shape
+                        planner = cls._get_optimal_planner_for_shape(dimensions, array.ndim)
                 ifftn_obj = cls._create_plan(array, pyfftw.builders.ifftn, s, axes, norm, threads, planner)
                 
                 # cache the plan
@@ -1315,17 +1298,7 @@ class SmartFFTW:
             Transformed array
         """
         
-        # Fallback: if configured to use NumPy for non-power-of-two inputs, do so.
-        if USE_NUMPY_FOR_NON_POWER_OF_TWO:
-            if s is not None:
-                dimensions = s
-            elif axes is not None:
-                dimensions = [array.shape[ax] for ax in axes]
-            else:
-                dimensions = array.shape
-            
-            if cls._is_non_power_of_two(dimensions):
-                return np.fft.rfftn(array, s=s, axes=axes, norm=norm)
+
         # generate cache key for this transform
         key = cls._get_cache_key(array, s, axes, norm, 'rfftn')
         
@@ -1347,9 +1320,17 @@ class SmartFFTW:
             else:
                 # create new plan
                 if planner is None:
-                    # use cached planner or default
-                    planner = cls._plan_quality.get(key, DEFAULT_PLANNER)
-                    
+                    # Check for cached planner first
+                    planner = cls._plan_quality.get(key, None)
+                    if planner is None:
+                        # Determine if this is a non-power-of-2 size
+                        if s is not None:
+                            dimensions = s
+                        elif axes is not None:
+                            dimensions = [array.shape[ax] for ax in axes]
+                        else:
+                            dimensions = array.shape
+                        planner = cls._get_optimal_planner_for_shape(dimensions, array.ndim)
                 rfftn_obj = cls._create_plan(array, pyfftw.builders.rfftn, s, axes, norm, threads, planner)
                 
                 # cache the plan
@@ -1399,17 +1380,7 @@ class SmartFFTW:
         Returns:
             Inverse-transformed real array
         """
-        # Fallback: if configured to use NumPy for non-power-of-two inputs, do so.
-        if USE_NUMPY_FOR_NON_POWER_OF_TWO:
-            if s is not None:
-                dimensions = s
-            elif axes is not None:
-                dimensions = [array.shape[ax] for ax in axes]
-            else:
-                dimensions = array.shape
-            
-            if cls._is_non_power_of_two(dimensions):
-                return np.fft.irfftn(array, s=s, axes=axes, norm=norm)
+        
         # generate cache key for this transform
         key = cls._get_cache_key(array, s, axes, norm, 'irfftn')
         
@@ -1431,9 +1402,17 @@ class SmartFFTW:
             else:
                 # create new plan
                 if planner is None:
-                    # use cached planner or default
-                    planner = cls._plan_quality.get(key, DEFAULT_PLANNER)
-                    
+                    # Check for cached planner first
+                    planner = cls._plan_quality.get(key, None)
+                    if planner is None:
+                        # Determine if this is a non-power-of-2 size
+                        if s is not None:
+                            dimensions = s
+                        elif axes is not None:
+                            dimensions = [array.shape[ax] for ax in axes]
+                        else:
+                            dimensions = array.shape
+                        planner = cls._get_optimal_planner_for_shape(dimensions, array.ndim)
                 irfftn_obj = cls._create_plan(array, pyfftw.builders.irfftn, s, axes, norm, threads, planner)
                 
                 # cache the plan

@@ -102,7 +102,6 @@ _config = {
         'multi_dim_max_threads': 8,
     },
     'fallback': {
-        'use_numpy_for_non_power_of_two': True,
         'allow_runtime_selection': True,
     },
     'logging': {
@@ -213,7 +212,6 @@ def _apply_configuration():
     core.THREADING_MAX_MEDIUM = _config['threading']['medium_max_threads']
     core.THREADING_MAX_MULTI_DIM = _config['threading']['multi_dim_max_threads']
     
-    core.USE_NUMPY_FOR_NON_POWER_OF_TWO = _config['fallback']['use_numpy_for_non_power_of_two']
     
     # Configure logging
     logging.getLogger("betterfftw").setLevel(getattr(logging, _config['logging']['level']))
