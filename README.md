@@ -1,4 +1,3 @@
-```markdown
 # BetterFFTW
 
 A high-performance, user-friendly wrapper for FFTW in Python, optimized for academic and research use.
@@ -90,4 +89,3 @@ BetterFFTW is built on top of [PyFFTW](https://github.com/pyFFTW/pyFFTW), which 
 ## License
 
 This project is licensed under the GPL-3.0 License - see the LICENSE file for details.
-```
