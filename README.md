@@ -84,7 +84,7 @@ Consider sticking with NumPy/SciPy for:
 
 ## Credits
 
-BetterFFTW is built on top of [PyFFTW](https://github.com/pyFFTW/pyFFTW), which provides Python bindings to the [FFTW C library](http://www.fftw.org/). We're grateful to the maintainers of these excellent projects.
+BetterFFTW is built on top of [PyFFTW](https://github.com/pyFFTW/pyFFTW), which provides Python bindings to the [FFTW C library](http://www.fftw.org/). I am grateful to the maintainers of these excellent projects.
 
 ## License
 
