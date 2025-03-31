@@ -8,16 +8,32 @@ version = "0.1.0"
 description = "High-performance, user-friendly wrapper for FFTW in Python"
 readme = "README.md"
 requires-python = ">=3.7"
-dependencies = [
-    "numpy",
-    "scipy",
-    "pyfftw",
-    "psutil",  # for the planning module
+license = {text = "GPL-3.0"}
+authors = [
+    {name = "Sebastian Griego", email = "sebastian.griego@gmail.com"}
 ]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Intended Audience :: Science/Research",
+]
+dependencies = [
+    "numpy>=1.17.0",
+    "scipy>=1.3.0",
+    "pyfftw>=0.12.0",
+    "psutil>=5.6.0",  # for the planning module
+]
+
+[project.urls]
+"Homepage" = "https://github.com/sebastian-griego/betterfftw"
 
 [project.optional-dependencies]
 dev = [
     "matplotlib",  # for examples
+    "pytest>=6.0",
+    "black",
 ]
 
 [tool.setuptools]
