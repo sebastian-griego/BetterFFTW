@@ -197,12 +197,16 @@ class SmartFFTW:
             return False
         return any((dim & (dim - 1)) != 0 for dim in dimensions if dim > 0)
     @classmethod
-    def _get_optimal_planner_for_shape(cls, dimensions, ndim=1):
+    def _get_optimal_planner_for_shape(cls, dimensions, ndim=1, transform_type=None):
         """Determine optimal planner based on array shape characteristics"""
         # Check if any dimension is non-power-of-two
         non_power_of_two = any((d & (d - 1)) != 0 for d in dimensions if d > 0)
         size = np.prod(dimensions)
         
+        # Special case: 1D real FFT on power-of-2 sizes always use ESTIMATE
+        if transform_type and transform_type.startswith('rfft') and ndim == 1 and not non_power_of_two:
+            return DEFAULT_PLANNER  # FFTW_ESTIMATE
+            
         if non_power_of_two:
             # Non-power-of-2 sizes get MEASURE immediately - critical for performance
             return MEASURE_PLANNER
@@ -555,9 +559,9 @@ class SmartFFTW:
                     # Check for cached planner first
                     planner = cls._plan_quality.get(key, None)
                     if planner is None:
-                        # Determine if this is a non-power-of-2 size
+                        # Determine optimal planner based on transform type and dimensions
                         dimensions = [array.shape[axis] if n is None else n]
-                        planner = cls._get_optimal_planner_for_shape(dimensions, 1)
+                        planner = cls._get_optimal_planner_for_shape(dimensions, 1, 'fft')  # Pass transform type
                 fft_obj = cls._create_plan(array, pyfftw.builders.fft, n, axis, norm, threads, planner)
                 
                 # cache the plan
@@ -665,9 +669,9 @@ class SmartFFTW:
                     # Check for cached planner first
                     planner = cls._plan_quality.get(key, None)
                     if planner is None:
-                        # Determine if this is a non-power-of-2 size
+                        # Determine optimal planner based on transform type and dimensions
                         dimensions = [array.shape[axis] if n is None else n]
-                        planner = cls._get_optimal_planner_for_shape(dimensions, 1)
+                        planner = cls._get_optimal_planner_for_shape(dimensions, 1, 'ifft')  # Pass transform type
                 ifft_obj = cls._create_plan(array, pyfftw.builders.ifft, n, axis, norm, threads, planner)
                 
                 # cache the plan
@@ -734,9 +738,9 @@ class SmartFFTW:
                     # Check for cached planner first
                     planner = cls._plan_quality.get(key, None)
                     if planner is None:
-                        # Determine if this is a non-power-of-2 size
+                        # Determine optimal planner based on transform type and dimensions
                         dimensions = [array.shape[axis] if n is None else n]
-                        planner = cls._get_optimal_planner_for_shape(dimensions, 1)
+                        planner = cls._get_optimal_planner_for_shape(dimensions, 1, 'rfft')  # Pass transform type
                 rfft_obj = cls._create_plan(array, pyfftw.builders.rfft, n, axis, norm, threads, planner)
                 
                 # cache the plan
@@ -802,9 +806,9 @@ class SmartFFTW:
                     # Check for cached planner first
                     planner = cls._plan_quality.get(key, None)
                     if planner is None:
-                        # Determine if this is a non-power-of-2 size
+                        # Determine optimal planner based on transform type and dimensions
                         dimensions = [array.shape[axis] if n is None else n]
-                        planner = cls._get_optimal_planner_for_shape(dimensions, 1)
+                        planner = cls._get_optimal_planner_for_shape(dimensions, 1, 'irfft')  # Pass transform type
                 irfft_obj = cls._create_plan(array, pyfftw.builders.irfft, n, axis, norm, threads, planner)
                 
                 # cache the plan
@@ -871,9 +875,9 @@ class SmartFFTW:
                     # Check for cached planner first
                     planner = cls._plan_quality.get(key, None)
                     if planner is None:
-                        # Determine if this is a non-power-of-2 size
+                        # Determine optimal planner based on transform type and dimensions
                         dimensions = [array.shape[ax] for ax in axes] if s is None else s
-                        planner = cls._get_optimal_planner_for_shape(dimensions, 2)
+                        planner = cls._get_optimal_planner_for_shape(dimensions, 2, 'fft2')  # Pass transform type
                 fft2_obj = cls._create_plan(array, pyfftw.builders.fft2, s, axes, norm, threads, planner)
                 
                 # cache the plan
@@ -942,9 +946,9 @@ class SmartFFTW:
                     # Check for cached planner first
                     planner = cls._plan_quality.get(key, None)
                     if planner is None:
-                        # Determine if this is a non-power-of-2 size
+                        # Determine optimal planner based on transform type and dimensions
                         dimensions = [array.shape[ax] for ax in axes] if s is None else s
-                        planner = cls._get_optimal_planner_for_shape(dimensions, 2)
+                        planner = cls._get_optimal_planner_for_shape(dimensions, 2, 'ifft2')  # Pass transform type
                 ifft2_obj = cls._create_plan(array, pyfftw.builders.ifft2, s, axes, norm, threads, planner)
                 
                 # cache the plan
@@ -1014,9 +1018,9 @@ class SmartFFTW:
                     # Check for cached planner first
                     planner = cls._plan_quality.get(key, None)
                     if planner is None:
-                        # Determine if this is a non-power-of-2 size
+                        # Determine optimal planner based on transform type and dimensions
                         dimensions = [array.shape[ax] if s is None else s[i] for i, ax in enumerate(axes)]
-                        planner = cls._get_optimal_planner_for_shape(dimensions, 2)
+                        planner = cls._get_optimal_planner_for_shape(dimensions, 2, 'rfft2')  # Pass transform type
                 rfft2_obj = cls._create_plan(array, pyfftw.builders.rfft2, s, axes, norm, threads, planner)
                 
                 # cache the plan
@@ -1086,9 +1090,9 @@ class SmartFFTW:
                     # Check for cached planner first
                     planner = cls._plan_quality.get(key, None)
                     if planner is None:
-                        # Determine if this is a non-power-of-2 size
+                        # Determine optimal planner based on transform type and dimensions
                         dimensions = [array.shape[ax] if s is None else s[i] for i, ax in enumerate(axes)]
-                        planner = cls._get_optimal_planner_for_shape(dimensions, 2)
+                        planner = cls._get_optimal_planner_for_shape(dimensions, 2, 'irfft2')  # Pass transform type
                 irfft2_obj = cls._create_plan(array, pyfftw.builders.irfft2, s, axes, norm, threads, planner)
                 
                 # cache the plan
@@ -1158,14 +1162,14 @@ class SmartFFTW:
                     # Check for cached planner first
                     planner = cls._plan_quality.get(key, None)
                     if planner is None:
-                        # Determine if this is a non-power-of-2 size
+                        # Determine optimal planner based on transform type and dimensions
                         if s is not None:
                             dimensions = s
                         elif axes is not None:
                             dimensions = [array.shape[ax] for ax in axes]
                         else:
                             dimensions = array.shape
-                        planner = cls._get_optimal_planner_for_shape(dimensions, array.ndim)
+                        planner = cls._get_optimal_planner_for_shape(dimensions, array.ndim, 'fftn')  # Pass transform type
                 fftn_obj = cls._create_plan(array, pyfftw.builders.fftn, s, axes, norm, threads, planner)
                 
                 # cache the plan
@@ -1240,14 +1244,14 @@ class SmartFFTW:
                     # Check for cached planner first
                     planner = cls._plan_quality.get(key, None)
                     if planner is None:
-                        # Determine if this is a non-power-of-2 size
+                        # Determine optimal planner based on transform type and dimensions
                         if s is not None:
                             dimensions = s
                         elif axes is not None:
                             dimensions = [array.shape[ax] for ax in axes]
                         else:
                             dimensions = array.shape
-                        planner = cls._get_optimal_planner_for_shape(dimensions, array.ndim)
+                        planner = cls._get_optimal_planner_for_shape(dimensions, array.ndim, 'ifftn')  # Pass transform type
                 ifftn_obj = cls._create_plan(array, pyfftw.builders.ifftn, s, axes, norm, threads, planner)
                 
                 # cache the plan
@@ -1323,14 +1327,14 @@ class SmartFFTW:
                     # Check for cached planner first
                     planner = cls._plan_quality.get(key, None)
                     if planner is None:
-                        # Determine if this is a non-power-of-2 size
+                        # Determine optimal planner based on transform type and dimensions
                         if s is not None:
                             dimensions = s
                         elif axes is not None:
                             dimensions = [array.shape[ax] for ax in axes]
                         else:
                             dimensions = array.shape
-                        planner = cls._get_optimal_planner_for_shape(dimensions, array.ndim)
+                        planner = cls._get_optimal_planner_for_shape(dimensions, array.ndim, 'rfftn')  # Pass transform type
                 rfftn_obj = cls._create_plan(array, pyfftw.builders.rfftn, s, axes, norm, threads, planner)
                 
                 # cache the plan
@@ -1405,14 +1409,14 @@ class SmartFFTW:
                     # Check for cached planner first
                     planner = cls._plan_quality.get(key, None)
                     if planner is None:
-                        # Determine if this is a non-power-of-2 size
+                        # Determine optimal planner based on transform type and dimensions
                         if s is not None:
                             dimensions = s
                         elif axes is not None:
                             dimensions = [array.shape[ax] for ax in axes]
                         else:
                             dimensions = array.shape
-                        planner = cls._get_optimal_planner_for_shape(dimensions, array.ndim)
+                        planner = cls._get_optimal_planner_for_shape(dimensions, array.ndim, 'irfftn')  # Pass transform type
                 irfftn_obj = cls._create_plan(array, pyfftw.builders.irfftn, s, axes, norm, threads, planner)
                 
                 # cache the plan

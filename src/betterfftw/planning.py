@@ -1,7 +1,7 @@
 """
 Smart planning strategies for optimizing FFTW performance.
 
-this module provides algorithms to determine the optimal FFT planning strategy
+This module provides algorithms to determine the optimal FFT planning strategy
 based on array characteristics, usage patterns, and system capabilities.
 """
 
