@@ -1,7 +1,6 @@
 LICENSE
 README.md
 pyproject.toml
-setup.py
 src/betterfftw/__init__.py
 src/betterfftw/core.py
 src/betterfftw/interface.py
