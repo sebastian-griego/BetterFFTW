@@ -12,6 +12,8 @@ import numpy as np
 import scipy.fft as scipy_fft
 
 from . import core
+import logging
+logger = logging.getLogger("betterfftw.interface")
 
 # keep track of whether we're registered as the default backend
 _registered_as_default = False
