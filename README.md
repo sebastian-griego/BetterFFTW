@@ -89,3 +89,6 @@ BetterFFTW is built on top of [PyFFTW](https://github.com/pyFFTW/pyFFTW), which 
 ## License
 
 This project is licensed under the GPL-3.0 License - see the LICENSE file for details.
+
+[![PyPI version](https://badge.fury.io/py/betterfftw.svg)](https://badge.fury.io/py/betterfftw)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
