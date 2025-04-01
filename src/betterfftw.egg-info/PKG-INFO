@@ -5,7 +5,7 @@ Summary: High-performance, user-friendly wrapper for FFTW in Python
 Home-page: https://github.com/sebastian-griego/betterfftw
 Author: Sebastian Griego
 Author-email: Sebastian Griego <sebastian.griego@gmail.com>
-License: GPL-3.0
+License: GPL-3.0-or-later
 Project-URL: Homepage, https://github.com/sebastian-griego/betterfftw
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
