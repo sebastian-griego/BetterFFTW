@@ -10,10 +10,8 @@ import time
 import multiprocessing
 import threading
 import numpy as np
-import scipy.fft
 import concurrent.futures
 import pyfftw
-import pyfftw.interfaces.numpy_fft
 import atexit
 import logging
 from typing import Dict, Tuple, Optional, Union, Any, List, Callable
@@ -58,71 +56,6 @@ _optimization_executor = concurrent.futures.ThreadPoolExecutor(
 )
 _optimization_futures = {}  # Track running optimizations
 
-def _select_optimal_implementation(array, n=None, shape=None, axes=None):
-    """Select the best FFT implementation based on benchmarks"""
-    # Determine array characteristics
-    ndim = array.ndim
-    dtype = array.dtype
-    
-    # Check if this is a 1D transform
-    if ndim == 1 or (axes is not None and len(axes) == 1) or (shape is not None and not isinstance(shape, tuple)):
-        # Get size for 1D transform
-        if n is not None:
-            size = n
-        elif axes is not None and len(axes) == 1:
-            size = array.shape[axes[0]]
-        else:
-            size = array.shape[-1]
-            
-        # Check if power of 2
-        is_power_of_2 = (size & (size - 1) == 0)
-        if not is_power_of_2:
-            return "betterfftw"  # Use BetterFFTW for non-power-of-2
-            
-        # Get the power (e.g., for size=8192, power=13 because 2^13=8192)
-        power = int(np.log2(size)) if is_power_of_2 else 0
-        
-        # 1D float32/complex64 power of 2
-        if dtype in (np.float32, np.complex64):
-            if power <= 13:
-                return "numpy"
-            else:
-                return "pyfftw"
-                
-        # 1D float64/complex128 power of 2
-        if dtype in (np.float64, np.complex128):
-            if power <= 14:
-                return "betterfftw"
-            else:
-                return "pyfftw"
-    
-    # Check if this is a 2D transform
-    elif ndim == 2 or (axes is not None and len(axes) == 2):
-        # For 2D transform, get the shape
-        if shape is not None:
-            dims = shape
-        elif axes is not None:
-            dims = (array.shape[axes[0]], array.shape[axes[1]])
-        else:
-            dims = (array.shape[-2], array.shape[-1])
-            
-        # Check if both dimensions are power of 2
-        is_power_of_2 = all((dim & (dim - 1) == 0) for dim in dims)
-        if not is_power_of_2:
-            return "betterfftw"  # Use BetterFFTW for non-power-of-2
-            
-        # Get minimum dimension power (in case of non-square arrays)
-        min_power = min(int(np.log2(dim)) for dim in dims)
-        
-        # 2D float32/complex64 power of 2
-        if dtype in (np.float32, np.complex64):
-            if min_power < 10:
-                return "scipy"
-            else:
-                return "betterfftw"
-    
-    # Default for all other cases
-    return "betterfftw"
 
 # wisdom file for persistent planning
 WISDOM_FILE = os.path.expanduser("~/.betterfftw_wisdom")
@@ -264,21 +197,12 @@ class SmartFFTW:
             return False
         return any((dim & (dim - 1)) != 0 for dim in dimensions if dim > 0)
     @classmethod
-    def _get_optimal_planner_for_shape(cls, dimensions, ndim=1, transform_type=None, dtype=None):
-        """Determine optimal planner based on array shape characteristics and data type"""
+    def _get_optimal_planner_for_shape(cls, dimensions, ndim=1, transform_type=None):
+        """Determine optimal planner based on array shape characteristics"""
         # Check if any dimension is non-power-of-two
         non_power_of_two = any((d & (d - 1)) != 0 for d in dimensions if d > 0)
         size = np.prod(dimensions)
         
-        # Special case for float32/complex64 power-of-2 transforms
-        is_single_precision = dtype in (np.float32, np.complex64)
-        
-        # For 1D float32/complex64 power-of-2 transforms, ALWAYS use MEASURE 
-        # This is the key fix for your performance issue
-        if not non_power_of_two and ndim == 1 and is_single_precision:
-            return MEASURE_PLANNER  # Use thorough planning for this case
-        
-        # Original logic for other cases
         # Special case: 1D real FFT on power-of-2 sizes always use ESTIMATE
         if transform_type and transform_type.startswith('rfft') and ndim == 1 and not non_power_of_two:
             return DEFAULT_PLANNER  # FFTW_ESTIMATE
@@ -290,7 +214,7 @@ class SmartFFTW:
             # Large multidimensional arrays may benefit from MEASURE
             return MEASURE_PLANNER if size > 262144 else DEFAULT_PLANNER
         else:
-            # Power-of-2 1D arrays do well with ESTIMATE (except float32/complex64)
+            # Power-of-2 1D arrays do well with ESTIMATE
             return DEFAULT_PLANNER
     @classmethod
     def _select_threads(cls, array: np.ndarray) -> int:
@@ -298,16 +222,8 @@ class SmartFFTW:
         size = np.prod(array.shape)
         dims = array.ndim
         
-        # Check if array is single precision
-        is_single_precision = array.dtype in (np.float32, np.complex64)
-        
         # Non-power-of-two check for better thread allocation
         non_power_of_two = any((dim & (dim - 1)) != 0 for dim in array.shape if dim > 0)
-        
-        # For 1D power-of-2 arrays with float32/complex64, use more threads
-        if dims == 1 and is_single_precision and not non_power_of_two:
-            # Use more threads to compensate for lower arithmetic intensity
-            return min(DEFAULT_THREADS, 4)
         
         # For small arrays, single thread is faster due to overhead
         if size < THREADING_SMALL_THRESHOLD:
@@ -369,11 +285,6 @@ class SmartFFTW:
                     planner: Optional[str] = None,
                     **kwargs) -> Any:
         """Create a new FFTW plan with specified parameters."""
-        # Ensure single-precision arrays are properly aligned
-        if array.dtype in (np.float32, np.complex64):
-            # Force alignment for float32/complex64
-            array = pyfftw.byte_align(array, n=32)  # Align to 32-byte boundary
-            
         if threads is None:
             threads = cls._select_threads(array)
             
@@ -598,18 +509,26 @@ class SmartFFTW:
            planner: Optional[str] = None) -> np.ndarray:
         """
         Compute FFT of input array with smart optimization.
+
+        This method automatically:
+        - Uses NumPy for non-power-of-2 sizes when enabled
+        - Reuses cached plans for the same array shape
+        - Selects optimal thread count based on array size
+        - Progressively optimizes plans for frequently used shapes
+        - Adaptively falls back to NumPy for specific sizes where it outperforms FFTW
+
+        Args:
+            array: Input array
+            n: Length of transformed axis
+            axis: Axis to transform
+            norm: Normalization mode
+            threads: Number of threads (None = auto-select)
+            planner: FFTW planning strategy (None = auto-select)
+            
+        Returns:
+            Transformed array
         """
-        # Check which implementation to use
-        impl = _select_optimal_implementation(array, n=n)
-        
-        # If not using SmartFFTW, dispatch to the appropriate implementation
-        if impl == "numpy":
-            return np.fft.fft(array, n=n, axis=axis, norm=norm)
-        elif impl == "pyfftw":
-            pyfftw.interfaces.cache.enable()
-            return pyfftw.interfaces.numpy_fft.fft(array, n=n, axis=axis, norm=norm)
-        
-        # Otherwise, use the original SmartFFTW implementation
+ 
         # generate cache key for this transform
         key = cls._get_cache_key(array, n, axis, norm, 'fft')
         
@@ -640,9 +559,9 @@ class SmartFFTW:
                     # Check for cached planner first
                     planner = cls._plan_quality.get(key, None)
                     if planner is None:
-                        # Pass the data type to the planner selection function
+                        # Determine optimal planner based on transform type and dimensions
                         dimensions = [array.shape[axis] if n is None else n]
-                        planner = cls._get_optimal_planner_for_shape(dimensions, 1, 'fft', array.dtype)
+                        planner = cls._get_optimal_planner_for_shape(dimensions, 1, 'fft')  # Pass transform type
                 fft_obj = cls._create_plan(array, pyfftw.builders.fft, n, axis, norm, threads, planner)
                 
                 # cache the plan
@@ -683,6 +602,7 @@ class SmartFFTW:
                     if numpy_time < exec_time * 0.9:  # NumPy is >10% faster
                         if not hasattr(cls, '_numpy_fallback_counts'):
                             cls._numpy_fallback_counts = {}
+                        
                         cls._numpy_fallback_counts[key] = cls._numpy_fallback_counts.get(key, 0) + 1
                         
                         # If NumPy is consistently faster over multiple checks,
@@ -724,17 +644,7 @@ class SmartFFTW:
         Returns:
             Inverse-transformed array
         """
-        # Check which implementation to use
-        impl = _select_optimal_implementation(array, n=n)
-        
-        # If not using SmartFFTW, dispatch to the appropriate implementation
-        if impl == "numpy":
-            return np.fft.ifft(array, n=n, axis=axis, norm=norm)
-        elif impl == "pyfftw":
-            pyfftw.interfaces.cache.enable()
-            return pyfftw.interfaces.numpy_fft.ifft(array, n=n, axis=axis, norm=norm)
-        
-        # Otherwise, use the original SmartFFTW implementation
+       
         # generate cache key for this transform
         key = cls._get_cache_key(array, n, axis, norm, 'ifft')
         
@@ -780,6 +690,7 @@ class SmartFFTW:
                 result *= scale
             
             return result
+    
     @classmethod
     def rfft(cls, array: np.ndarray, 
             n: Optional[int] = None, 
@@ -938,17 +849,8 @@ class SmartFFTW:
         Returns:
             Transformed array
         """
-        # Check which implementation to use
-        impl = _select_optimal_implementation(array, shape=s, axes=axes)
         
-        # If not using SmartFFTW, dispatch to the appropriate implementation
-        if impl == "numpy":
-            return np.fft.fft2(array, s=s, axes=axes, norm=norm)
-        elif impl == "pyfftw":
-            pyfftw.interfaces.cache.enable()
-            return pyfftw.interfaces.numpy_fft.fft2(array, s=s, axes=axes, norm=norm)
-        
-        # Otherwise, use the original SmartFFTW implementation
+
         # generate cache key for this transform
         key = cls._get_cache_key(array, s, axes, norm, 'fft2')
         
@@ -1020,17 +922,7 @@ class SmartFFTW:
         Returns:
             Inverse-transformed array
         """
-        # Check which implementation to use
-        impl = _select_optimal_implementation(array, shape=s, axes=axes)
-        
-        # If not using SmartFFTW, dispatch to the appropriate implementation
-        if impl == "numpy":
-            return np.fft.ifft2(array, s=s, axes=axes, norm=norm)
-        elif impl == "pyfftw":
-            pyfftw.interfaces.cache.enable()
-            return pyfftw.interfaces.numpy_fft.ifft2(array, s=s, axes=axes, norm=norm)
-        
-        # Otherwise, use the original SmartFFTW implementation
+     
         # generate cache key for this transform
         key = cls._get_cache_key(array, s, axes, norm, 'ifft2')
         with _cache_lock:
@@ -1079,6 +971,7 @@ class SmartFFTW:
                 result *= scale
             
             return result
+    
     @classmethod
     def rfft2(cls, array: np.ndarray, 
              s: Optional[Tuple[int, int]] = None, 
@@ -1731,36 +1624,12 @@ fftw = SmartFFTW()
 
 # Simplified function interfaces
 def fft(array, n=None, axis=-1, norm=None, threads=None, planner=None):
-    """Smart FFT function with auto-optimization and implementation selection."""
-    impl = _select_optimal_implementation(array, n=n)
-    
-    if impl == "numpy":
-        import numpy as np
-        return np.fft.fft(array, n=n, axis=axis, norm=norm)
-        
-    elif impl == "pyfftw":
-        import pyfftw
-        pyfftw.interfaces.cache.enable()
-        return pyfftw.interfaces.numpy_fft.fft(array, n=n, axis=axis, norm=norm)
-    
-    else:  # "betterfftw"
-        return SmartFFTW.fft(array, n, axis, norm, threads, planner)
+    """Smart FFT function with auto-optimization."""
+    return SmartFFTW.fft(array, n, axis, norm, threads, planner)
 
 def ifft(array, n=None, axis=-1, norm=None, threads=None, planner=None):
-    """Smart inverse FFT function with auto-optimization and implementation selection."""
-    impl = _select_optimal_implementation(array, n=n)
-    
-    if impl == "numpy":
-        import numpy as np
-        return np.fft.ifft(array, n=n, axis=axis, norm=norm)
-        
-    elif impl == "pyfftw":
-        import pyfftw
-        pyfftw.interfaces.cache.enable()
-        return pyfftw.interfaces.numpy_fft.ifft(array, n=n, axis=axis, norm=norm)
-    
-    else:  # "betterfftw"
-        return SmartFFTW.ifft(array, n, axis, norm, threads, planner)
+    """Smart inverse FFT function with auto-optimization."""
+    return SmartFFTW.ifft(array, n, axis, norm, threads, planner)
 
 def rfft(array, n=None, axis=-1, norm=None, threads=None, planner=None):
     """Smart real FFT function with auto-optimization."""
@@ -1771,36 +1640,12 @@ def irfft(array, n=None, axis=-1, norm=None, threads=None, planner=None):
     return SmartFFTW.irfft(array, n, axis, norm, threads, planner)
 
 def fft2(array, s=None, axes=(-2, -1), norm=None, threads=None, planner=None):
-    """Smart 2D FFT function with auto-optimization and implementation selection."""
-    impl = _select_optimal_implementation(array, shape=s, axes=axes)
-    
-    if impl == "scipy":
-        import scipy.fft
-        return scipy.fft.fft2(array, s=s, axes=axes, norm=norm)
-        
-    elif impl == "pyfftw":
-        import pyfftw
-        pyfftw.interfaces.cache.enable()
-        return pyfftw.interfaces.numpy_fft.fft2(array, s=s, axes=axes, norm=norm)
-    
-    else:  # "betterfftw"
-        return SmartFFTW.fft2(array, s, axes, norm, threads, planner)
+    """Smart 2D FFT function with auto-optimization."""
+    return SmartFFTW.fft2(array, s, axes, norm, threads, planner)
 
 def ifft2(array, s=None, axes=(-2, -1), norm=None, threads=None, planner=None):
-    """Smart inverse 2D FFT function with auto-optimization and implementation selection."""
-    impl = _select_optimal_implementation(array, shape=s, axes=axes)
-    
-    if impl == "scipy":
-        import scipy.fft
-        return scipy.fft.ifft2(array, s=s, axes=axes, norm=norm)
-        
-    elif impl == "pyfftw":
-        import pyfftw
-        pyfftw.interfaces.cache.enable()
-        return pyfftw.interfaces.numpy_fft.ifft2(array, s=s, axes=axes, norm=norm)
-    
-    else:  # "betterfftw"
-        return SmartFFTW.ifft2(array, s, axes, norm, threads, planner)
+    """Smart inverse 2D FFT function with auto-optimization."""
+    return SmartFFTW.ifft2(array, s, axes, norm, threads, planner)
 
 def rfft2(array, s=None, axes=(-2, -1), norm=None, threads=None, planner=None):
     """Smart 2D real FFT function with auto-optimization."""
