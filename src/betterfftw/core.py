@@ -197,12 +197,21 @@ class SmartFFTW:
             return False
         return any((dim & (dim - 1)) != 0 for dim in dimensions if dim > 0)
     @classmethod
-    def _get_optimal_planner_for_shape(cls, dimensions, ndim=1, transform_type=None):
-        """Determine optimal planner based on array shape characteristics"""
+    def _get_optimal_planner_for_shape(cls, dimensions, ndim=1, transform_type=None, dtype=None):
+        """Determine optimal planner based on array shape characteristics and data type"""
         # Check if any dimension is non-power-of-two
         non_power_of_two = any((d & (d - 1)) != 0 for d in dimensions if d > 0)
         size = np.prod(dimensions)
         
+        # Special case for float32/complex64 power-of-2 transforms
+        is_single_precision = dtype in (np.float32, np.complex64)
+        
+        # For 1D float32/complex64 power-of-2 transforms, ALWAYS use MEASURE 
+        # This is the key fix for your performance issue
+        if not non_power_of_two and ndim == 1 and is_single_precision:
+            return MEASURE_PLANNER  # Use thorough planning for this case
+        
+        # Original logic for other cases
         # Special case: 1D real FFT on power-of-2 sizes always use ESTIMATE
         if transform_type and transform_type.startswith('rfft') and ndim == 1 and not non_power_of_two:
             return DEFAULT_PLANNER  # FFTW_ESTIMATE
@@ -214,7 +223,7 @@ class SmartFFTW:
             # Large multidimensional arrays may benefit from MEASURE
             return MEASURE_PLANNER if size > 262144 else DEFAULT_PLANNER
         else:
-            # Power-of-2 1D arrays do well with ESTIMATE
+            # Power-of-2 1D arrays do well with ESTIMATE (except float32/complex64)
             return DEFAULT_PLANNER
     @classmethod
     def _select_threads(cls, array: np.ndarray) -> int:
@@ -222,8 +231,16 @@ class SmartFFTW:
         size = np.prod(array.shape)
         dims = array.ndim
         
+        # Check if array is single precision
+        is_single_precision = array.dtype in (np.float32, np.complex64)
+        
         # Non-power-of-two check for better thread allocation
         non_power_of_two = any((dim & (dim - 1)) != 0 for dim in array.shape if dim > 0)
+        
+        # For 1D power-of-2 arrays with float32/complex64, use more threads
+        if dims == 1 and is_single_precision and not non_power_of_two:
+            # Use more threads to compensate for lower arithmetic intensity
+            return min(DEFAULT_THREADS, 4)
         
         # For small arrays, single thread is faster due to overhead
         if size < THREADING_SMALL_THRESHOLD:
@@ -285,6 +302,11 @@ class SmartFFTW:
                     planner: Optional[str] = None,
                     **kwargs) -> Any:
         """Create a new FFTW plan with specified parameters."""
+        # Ensure single-precision arrays are properly aligned
+        if array.dtype in (np.float32, np.complex64):
+            # Force alignment for float32/complex64
+            array = pyfftw.byte_align(array, n=32)  # Align to 32-byte boundary
+            
         if threads is None:
             threads = cls._select_threads(array)
             
@@ -559,9 +581,9 @@ class SmartFFTW:
                     # Check for cached planner first
                     planner = cls._plan_quality.get(key, None)
                     if planner is None:
-                        # Determine optimal planner based on transform type and dimensions
+                        # Pass the data type to the planner selection function
                         dimensions = [array.shape[axis] if n is None else n]
-                        planner = cls._get_optimal_planner_for_shape(dimensions, 1, 'fft')  # Pass transform type
+                        planner = cls._get_optimal_planner_for_shape(dimensions, 1, 'fft', array.dtype)
                 fft_obj = cls._create_plan(array, pyfftw.builders.fft, n, axis, norm, threads, planner)
                 
                 # cache the plan
@@ -623,7 +645,6 @@ class SmartFFTW:
             
             return result
     
-    @classmethod
     def ifft(cls, array: np.ndarray, 
             n: Optional[int] = None, 
             axis: int = -1, 
