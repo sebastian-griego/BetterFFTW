@@ -598,26 +598,18 @@ class SmartFFTW:
            planner: Optional[str] = None) -> np.ndarray:
         """
         Compute FFT of input array with smart optimization.
-
-        This method automatically:
-        - Uses NumPy for non-power-of-2 sizes when enabled
-        - Reuses cached plans for the same array shape
-        - Selects optimal thread count based on array size
-        - Progressively optimizes plans for frequently used shapes
-        - Adaptively falls back to NumPy for specific sizes where it outperforms FFTW
-
-        Args:
-            array: Input array
-            n: Length of transformed axis
-            axis: Axis to transform
-            norm: Normalization mode
-            threads: Number of threads (None = auto-select)
-            planner: FFTW planning strategy (None = auto-select)
-            
-        Returns:
-            Transformed array
         """
- 
+        # Check which implementation to use
+        impl = _select_optimal_implementation(array, n=n)
+        
+        # If not using SmartFFTW, dispatch to the appropriate implementation
+        if impl == "numpy":
+            return np.fft.fft(array, n=n, axis=axis, norm=norm)
+        elif impl == "pyfftw":
+            pyfftw.interfaces.cache.enable()
+            return pyfftw.interfaces.numpy_fft.fft(array, n=n, axis=axis, norm=norm)
+        
+        # Otherwise, use the original SmartFFTW implementation
         # generate cache key for this transform
         key = cls._get_cache_key(array, n, axis, norm, 'fft')
         
@@ -691,7 +683,6 @@ class SmartFFTW:
                     if numpy_time < exec_time * 0.9:  # NumPy is >10% faster
                         if not hasattr(cls, '_numpy_fallback_counts'):
                             cls._numpy_fallback_counts = {}
-                        
                         cls._numpy_fallback_counts[key] = cls._numpy_fallback_counts.get(key, 0) + 1
                         
                         # If NumPy is consistently faster over multiple checks,
@@ -712,6 +703,7 @@ class SmartFFTW:
             
             return result
     
+    @classmethod
     def ifft(cls, array: np.ndarray, 
             n: Optional[int] = None, 
             axis: int = -1, 
@@ -732,7 +724,17 @@ class SmartFFTW:
         Returns:
             Inverse-transformed array
         """
-       
+        # Check which implementation to use
+        impl = _select_optimal_implementation(array, n=n)
+        
+        # If not using SmartFFTW, dispatch to the appropriate implementation
+        if impl == "numpy":
+            return np.fft.ifft(array, n=n, axis=axis, norm=norm)
+        elif impl == "pyfftw":
+            pyfftw.interfaces.cache.enable()
+            return pyfftw.interfaces.numpy_fft.ifft(array, n=n, axis=axis, norm=norm)
+        
+        # Otherwise, use the original SmartFFTW implementation
         # generate cache key for this transform
         key = cls._get_cache_key(array, n, axis, norm, 'ifft')
         
@@ -778,7 +780,6 @@ class SmartFFTW:
                 result *= scale
             
             return result
-    
     @classmethod
     def rfft(cls, array: np.ndarray, 
             n: Optional[int] = None, 
@@ -937,8 +938,17 @@ class SmartFFTW:
         Returns:
             Transformed array
         """
+        # Check which implementation to use
+        impl = _select_optimal_implementation(array, shape=s, axes=axes)
         
-
+        # If not using SmartFFTW, dispatch to the appropriate implementation
+        if impl == "numpy":
+            return np.fft.fft2(array, s=s, axes=axes, norm=norm)
+        elif impl == "pyfftw":
+            pyfftw.interfaces.cache.enable()
+            return pyfftw.interfaces.numpy_fft.fft2(array, s=s, axes=axes, norm=norm)
+        
+        # Otherwise, use the original SmartFFTW implementation
         # generate cache key for this transform
         key = cls._get_cache_key(array, s, axes, norm, 'fft2')
         
@@ -1010,7 +1020,17 @@ class SmartFFTW:
         Returns:
             Inverse-transformed array
         """
-     
+        # Check which implementation to use
+        impl = _select_optimal_implementation(array, shape=s, axes=axes)
+        
+        # If not using SmartFFTW, dispatch to the appropriate implementation
+        if impl == "numpy":
+            return np.fft.ifft2(array, s=s, axes=axes, norm=norm)
+        elif impl == "pyfftw":
+            pyfftw.interfaces.cache.enable()
+            return pyfftw.interfaces.numpy_fft.ifft2(array, s=s, axes=axes, norm=norm)
+        
+        # Otherwise, use the original SmartFFTW implementation
         # generate cache key for this transform
         key = cls._get_cache_key(array, s, axes, norm, 'ifft2')
         with _cache_lock:
@@ -1059,7 +1079,6 @@ class SmartFFTW:
                 result *= scale
             
             return result
-    
     @classmethod
     def rfft2(cls, array: np.ndarray, 
              s: Optional[Tuple[int, int]] = None, 
