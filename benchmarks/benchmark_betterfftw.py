@@ -127,6 +127,166 @@ def time_function(func, *args, **kwargs):
     
     return result, end_time - start_time
 
+def plot_benchmark_results(df, timestamp):
+    """
+    Generate visualizations for direct comparison benchmark results.
+    
+    Args:
+        df: DataFrame containing benchmark results
+        timestamp: Timestamp string for filenames
+    """
+    logger.info("Generating benchmark visualizations...")
+    
+    if df.empty:
+        logger.warning("No data to plot")
+        return
+    
+    # Create directory for plots
+    plots_dir = os.path.join(RESULTS_DIR, f"plots_{timestamp}")
+    os.makedirs(plots_dir, exist_ok=True)
+    
+    # 1D transforms
+    for dtype_name in df['dtype'].unique():
+        plot_df = df[(df['dimension'] == 1) & (df['dtype'] == dtype_name)]
+        if not plot_df.empty:
+            plt.figure(figsize=(12, 8))
+            for is_pow2 in [True, False]:
+                subset = plot_df[plot_df['is_power_of_2'] == is_pow2]
+                if not subset.empty:
+                    plt.subplot(1, 2, 1 if is_pow2 else 2)
+                    sns.lineplot(
+                        data=subset, 
+                        x='size', 
+                        y='time',
+                        hue='implementation',
+                        marker='o',
+                        errorbar=('ci', 95)
+                    )
+                    plt.xscale('log', base=2)
+                    plt.yscale('log', base=10)
+                    plt.title(f"{'Power-of-2' if is_pow2 else 'Non-Power-of-2'} Sizes")
+                    plt.xlabel('Size')
+                    plt.ylabel('Execution Time (s)')
+                    plt.grid(True, alpha=0.3)
+
+            plt.suptitle(f'Performance of 1D Transforms ({dtype_name})')
+            plt.tight_layout()
+            plt.savefig(os.path.join(plots_dir, f"direct_comparison_1d_{dtype_name.replace('/', '_')}.png"), dpi=300)
+            plt.close()
+
+    # 2D transforms
+    for dtype_name in df['dtype'].unique():
+        plot_df = df[(df['dimension'] == 2) & (df['dtype'] == dtype_name)]
+        if not plot_df.empty:
+            plt.figure(figsize=(12, 8))
+            for is_pow2 in [True, False]:
+                subset = plot_df[plot_df['is_power_of_2'] == is_pow2]
+                if not subset.empty:
+                    plt.subplot(1, 2, 1 if is_pow2 else 2)
+                    sns.lineplot(
+                        data=subset, 
+                        x='size', 
+                        y='time',
+                        hue='implementation',
+                        marker='o',
+                        errorbar=('ci', 95)
+                    )
+                    plt.xscale('log', base=2)
+                    plt.yscale('log', base=10)
+                    plt.title(f"{'Power-of-2' if is_pow2 else 'Non-Power-of-2'} Sizes")
+                    plt.xlabel('Size')
+                    plt.ylabel('Execution Time (s)')
+                    plt.grid(True, alpha=0.3)
+
+            plt.suptitle(f'Performance of 2D Transforms ({dtype_name})')
+            plt.tight_layout()
+            plt.savefig(os.path.join(plots_dir, f"direct_comparison_2d_{dtype_name.replace('/', '_')}.png"), dpi=300)
+            plt.close()
+
+    # 3D transforms
+    for dtype_name in df['dtype'].unique():
+        plot_df = df[(df['dimension'] == 3) & (df['dtype'] == dtype_name)]
+        if not plot_df.empty:
+            plt.figure(figsize=(12, 8))
+            for is_pow2 in [True, False]:
+                subset = plot_df[plot_df['is_power_of_2'] == is_pow2]
+                if not subset.empty:
+                    plt.subplot(1, 2, 1 if is_pow2 else 2)
+                    sns.lineplot(
+                        data=subset, 
+                        x='size', 
+                        y='time',
+                        hue='implementation',
+                        marker='o',
+                        errorbar=('ci', 95)
+                    )
+                    plt.xscale('log', base=2)
+                    plt.yscale('log', base=10)
+                    plt.title(f"{'Power-of-2' if is_pow2 else 'Non-Power-of-2'} Sizes")
+                    plt.xlabel('Size')
+                    plt.ylabel('Execution Time (s)')
+                    plt.grid(True, alpha=0.3)
+
+            plt.suptitle(f'Performance of 3D Transforms ({dtype_name})')
+            plt.tight_layout()
+            plt.savefig(os.path.join(plots_dir, f"direct_comparison_3d_{dtype_name.replace('/', '_')}.png"), dpi=300)
+            plt.close()
+
+    # Speedup ratios plot
+    # Calculate speedup relative to NumPy
+    pivot_df = df.pivot_table(
+        index=['dimension', 'size', 'dtype', 'is_power_of_2'],
+        columns='implementation',
+        values='time'
+    ).reset_index()
+
+    if 'NumPy FFT' in pivot_df.columns:
+        for impl in pivot_df.columns:
+            if impl not in ['dimension', 'size', 'dtype', 'is_power_of_2', 'NumPy FFT']:
+                pivot_df[f"{impl}_speedup"] = pivot_df['NumPy FFT'] / pivot_df[impl]
+
+        # Create speedup plot
+        speedup_cols = [col for col in pivot_df.columns if '_speedup' in col]
+        if speedup_cols:
+            plt.figure(figsize=(14, 10))
+            for dim in [1, 2, 3]:
+                subset = pivot_df[pivot_df['dimension'] == dim]
+                if not subset.empty:
+                    plt.subplot(1, 3, dim)
+
+                    # Melt data for seaborn
+                    melted = pd.melt(
+                        subset, 
+                        id_vars=['size', 'dtype', 'is_power_of_2'], 
+                        value_vars=speedup_cols, 
+                        var_name='implementation', 
+                        value_name='speedup'
+                    )
+                    # Clean implementation name
+                    melted['implementation'] = melted['implementation'].str.replace('_speedup', '')
+
+                    sns.lineplot(
+                        data=melted,
+                        x='size',
+                        y='speedup',
+                        hue='implementation',
+                        style='dtype',
+                        markers=True
+                    )
+
+                    plt.axhline(y=1.0, color='r', linestyle='--', alpha=0.5)
+                    plt.xscale('log', base=2)
+                    plt.title(f'{dim}D Transform Speedup vs NumPy')
+                    plt.xlabel('Size')
+                    plt.ylabel('Speedup Factor')
+                    plt.grid(True, alpha=0.3)
+
+            plt.tight_layout()
+            plt.savefig(os.path.join(plots_dir, f"direct_comparison_speedup.png"), dpi=300)
+            plt.close()
+    
+    logger.info(f"Visualizations saved to {plots_dir}")
+
 def benchmark_direct_comparison(n_datasets=3, save_results=True, n_runs=None):
     """
     Compare BetterFFTW defaults against other libraries across
