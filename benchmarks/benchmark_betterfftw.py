@@ -121,19 +121,18 @@ def time_function(func, *args, **kwargs):
     gc.collect()
     
     # Measure execution time
-    start_time = time.perf_counter()  # Changed from time.time() to time.perf_counter()
+    start_time = time.perf_counter()
     result = func(*args, **kwargs)
-    end_time = time.perf_counter()    # Changed from time.time() to time.perf_counter()
+    end_time = time.perf_counter()
     
     return result, end_time - start_time
 
-def benchmark_direct_comparison(n_runs=5, n_datasets=3, save_results=True):
+def benchmark_direct_comparison(n_datasets=3, save_results=True):
     """
     Compare BetterFFTW defaults against other libraries across
     various array sizes and dimensions.
     
     Args:
-        n_runs: Number of runs per configuration
         n_datasets: Number of different random datasets to test
         save_results: Whether to save results to disk
     """
@@ -230,6 +229,9 @@ def benchmark_direct_comparison(n_runs=5, n_datasets=3, save_results=True):
                     
                     logger.info(f"  Size {size} ({'power of 2' if is_power_of_2 else 'non-power of 2'})")
                     
+                    # Dictionary to collect average times for each implementation
+                    implementation_times = {impl_key: [] for impl_key, impl in FFT_IMPLEMENTATIONS.items() if impl["available"]}
+                    
                     # Test multiple datasets for statistical significance
                     for dataset_idx in range(n_datasets):
                         logger.info(f"    Dataset {dataset_idx+1}/{n_datasets}")
@@ -254,192 +256,50 @@ def benchmark_direct_comparison(n_runs=5, n_datasets=3, save_results=True):
                                     impl_func = getattr(impl_module, full_func_name)
                                     
                                     # Setup implementation
-                                    impl["setup"]()
+                                    if impl["setup"]:
+                                        impl["setup"]()
                                     
-                                    # First run (includes planning overhead)
-                                    array_copy = array.copy()
-                                    _, first_run_time = time_function(impl_func, array_copy)
+                                    # SIMPLIFIED APPROACH: Run warmup, then single measurement
+                                    # Warmup run (not measured)
+                                    _ = impl_func(array)
                                     
-                                    # Measure multiple runs for execution time
-                                    execution_times = []
-                                    for run_idx in range(n_runs):
-                                        array_copy = array.copy()
-                                        _, run_time = time_function(impl_func, array_copy)
-                                        execution_times.append(run_time)
+                                    # Single measured run
+                                    _, execution_time = time_function(impl_func, array)
                                     
-                                    # Calculate statistics
-                                    avg_execution_time = sum(execution_times) / len(execution_times)
-                                    std_deviation = np.std(execution_times) if len(execution_times) > 1 else 0
-                                    planning_overhead = first_run_time - avg_execution_time
+                                    # Store the time for averaging across datasets
+                                    implementation_times[impl_key].append(execution_time)
                                     
-                                    # Record memory before and after to estimate memory usage
-                                    mem_before = get_memory_usage()
-                                    array_copy = array.copy()
-                                    _ = impl_func(array_copy)
-                                    mem_after = get_memory_usage()
-                                    mem_delta = mem_after - mem_before
+                                    # Cleanup implementation
+                                    if impl["cleanup"]:
+                                        impl["cleanup"]()
                                     
-                                    # Record result
-                                    result = {
-                                        "implementation": impl["name"],
-                                        "dimension": dim,
-                                        "transform": transform_name,
-                                        "size": size,
-                                        "shape": str(shape),
-                                        "dtype": dtype_name,
-                                        "is_power_of_2": is_power_of_2,
-                                        "dataset_idx": dataset_idx,
-                                        "first_run_time": first_run_time,
-                                        "avg_execution_time": avg_execution_time,
-                                        "std_deviation": std_deviation,
-                                        "planning_overhead": planning_overhead,
-                                        "memory_delta_mb": mem_delta
-                                    }
-                                    
-                                    logger.info(f"      {impl['name']}: {avg_execution_time:.6f}s ±{std_deviation:.6f}s (first: {first_run_time:.6f}s)")
-                                    results.append(result)
-                                    
-                                    # Cleanup
-                                    impl["cleanup"]()
-                                    force_gc()
+                                    # Log result for this dataset
+                                    logger.info(f"       {impl['name']}: {execution_time:.6f}s")
                                     
                                 except Exception as e:
-                                    logger.error(f"Error with {impl['name']} on {full_func_name} size {size}: {str(e)}")
-                                    traceback.print_exc()
-                                    
+                                    logger.error(f"Error with {impl['name']} on {transform_name} size {size}: {str(e)}")
+                                    logger.debug(traceback.format_exc())
                         except Exception as e:
-                            logger.error(f"Error creating array with shape {shape}: {str(e)}")
-    
-    # Convert results to DataFrame
-    df = pd.DataFrame(results)
-    
-    # Save results
-    if save_results and not df.empty:
-        csv_file = os.path.join(RESULTS_DIR, f"direct_comparison_{TIMESTAMP}.csv")
-        df.to_csv(csv_file, index=False)
-        logger.info(f"Results saved to {csv_file}")
-        
-        # Generate more statistical analysis
-        if not df.empty:
-            # Calculate average performance by implementation, dimension, and data type
-            summary = df.groupby(['implementation', 'dimension', 'dtype'])['avg_execution_time'].agg(['mean', 'std', 'min', 'max']).reset_index()
-            summary_file = os.path.join(RESULTS_DIR, f"direct_comparison_summary_{TIMESTAMP}.csv")
-            summary.to_csv(summary_file, index=False)
-            logger.info(f"Summary statistics saved to {summary_file}")
-            
-            # Create comparative plots
-            # 1D transforms
-            for dtype_name in df['dtype'].unique():
-                plot_df = df[(df['dimension'] == 1) & (df['dtype'] == dtype_name)]
-                if not plot_df.empty:
-                    plt.figure(figsize=(12, 8))
-                    for is_pow2 in [True, False]:
-                        subset = plot_df[plot_df['is_power_of_2'] == is_pow2]
-                        if not subset.empty:
-                            plt.subplot(1, 2, 1 if is_pow2 else 2)
-                            sns.lineplot(
-                                data=subset, 
-                                x='size', 
-                                y='avg_execution_time',
-                                hue='implementation',
-                                marker='o',
-                                errorbar=('ci', 95)
-                            )
-                            plt.xscale('log', base=2)
-                            plt.yscale('log', base=10)
-                            plt.title(f"{'Power-of-2' if is_pow2 else 'Non-Power-of-2'} Sizes")
-                            plt.xlabel('Size')
-                            plt.ylabel('Execution Time (s)')
-                            plt.grid(True, alpha=0.3)
+                            logger.error(f"Error creating test array: {str(e)}")
+                            logger.debug(traceback.format_exc())
                     
-                    plt.suptitle(f'Performance of 1D Transforms ({dtype_name})')
-                    plt.tight_layout()
-                    plt.savefig(os.path.join(RESULTS_DIR, f"direct_comparison_1d_{dtype_name.replace('/', '_')}_{TIMESTAMP}.png"), dpi=300)
-                    plt.close()
-            
-            # 2D transforms
-            for dtype_name in df['dtype'].unique():
-                plot_df = df[(df['dimension'] == 2) & (df['dtype'] == dtype_name)]
-                if not plot_df.empty:
-                    plt.figure(figsize=(12, 8))
-                    for is_pow2 in [True, False]:
-                        subset = plot_df[plot_df['is_power_of_2'] == is_pow2]
-                        if not subset.empty:
-                            plt.subplot(1, 2, 1 if is_pow2 else 2)
-                            sns.lineplot(
-                                data=subset, 
-                                x='size', 
-                                y='avg_execution_time',
-                                hue='implementation',
-                                marker='o',
-                                errorbar=('ci', 95)
-                            )
-                            plt.xscale('log', base=2)
-                            plt.yscale('log', base=10)
-                            plt.title(f"{'Power-of-2' if is_pow2 else 'Non-Power-of-2'} Sizes")
-                            plt.xlabel('Size')
-                            plt.ylabel('Execution Time (s)')
-                            plt.grid(True, alpha=0.3)
-                    
-                    plt.suptitle(f'Performance of 2D Transforms ({dtype_name})')
-                    plt.tight_layout()
-                    plt.savefig(os.path.join(RESULTS_DIR, f"direct_comparison_2d_{dtype_name.replace('/', '_')}_{TIMESTAMP}.png"), dpi=300)
-                    plt.close()
-            
-            # Speedup ratios plot
-            # Calculate speedup relative to NumPy
-            pivot_df = df.pivot_table(
-                index=['dimension', 'size', 'dtype', 'dataset_idx'],
-                columns='implementation',
-                values='avg_execution_time'
-            ).reset_index()
-            
-            if 'NumPy FFT' in pivot_df.columns:
-                for impl in pivot_df.columns:
-                    if impl not in ['dimension', 'size', 'dtype', 'dataset_idx', 'NumPy FFT']:
-                        pivot_df[f"{impl}_speedup"] = pivot_df['NumPy FFT'] / pivot_df[impl]
-                
-                # Create speedup plot
-                speedup_cols = [col for col in pivot_df.columns if '_speedup' in col]
-                if speedup_cols:
-                    plt.figure(figsize=(14, 10))
-                    for dim in [1, 2, 3]:
-                        subset = pivot_df[pivot_df['dimension'] == dim]
-                        if not subset.empty:
-                            plt.subplot(1, 3, dim)
+                    # After testing all datasets, compute and store average results
+                    for impl_key, times in implementation_times.items():
+                        if times:
+                            avg_time = sum(times) / len(times)
+                            impl_name = FFT_IMPLEMENTATIONS[impl_key]["name"]
                             
-                            # Melt data for seaborn
-                            melted = pd.melt(
-                                subset, 
-                                id_vars=['size', 'dtype'], 
-                                value_vars=speedup_cols, 
-                                var_name='implementation', 
-                                value_name='speedup'
-                            )
-                            # Clean implementation name
-                            melted['implementation'] = melted['implementation'].str.replace('_speedup', '')
-                            
-                            sns.lineplot(
-                                data=melted,
-                                x='size',
-                                y='speedup',
-                                hue='implementation',
-                                style='dtype',
-                                markers=True
-                            )
-                            
-                            plt.axhline(y=1.0, color='r', linestyle='--', alpha=0.5)
-                            plt.xscale('log', base=2)
-                            plt.title(f'{dim}D Transform Speedup vs NumPy')
-                            plt.xlabel('Size')
-                            plt.ylabel('Speedup Factor')
-                            plt.grid(True, alpha=0.3)
-                    
-                    plt.tight_layout()
-                    plt.savefig(os.path.join(RESULTS_DIR, f"direct_comparison_speedup_{TIMESTAMP}.png"), dpi=300)
-                    plt.close()
-
-    return df
+                            # Create result entry for plotting/saving
+                            result = {
+                                "dimension": dim,
+                                "transform": transform_name,
+                                "size": size,
+                                "is_power_of_2": is_power_of_2,
+                                "dtype": dtype_name,
+                                "implementation": impl_name,
+                                "time": avg_time
+                            }
+                            results.append(result)
 
 def benchmark_repeated_use(n_runs=5, n_datasets=3, save_results=True):
     """
