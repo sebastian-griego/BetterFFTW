@@ -59,7 +59,6 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger("benchmark")
-
 # Define the FFT implementations to benchmark
 FFT_IMPLEMENTATIONS = {
     "numpy": {
@@ -87,7 +86,7 @@ FFT_IMPLEMENTATIONS = {
         "name": "BetterFFTW",
         "module": betterfftw,
         "setup": lambda: None,
-        "cleanup": lambda: betterfftw.clear_cache(),
+        "cleanup": lambda: None,  # Changed from betterfftw.clear_cache() to None
         "available": True
     }
 }
@@ -122,9 +121,9 @@ def time_function(func, *args, **kwargs):
     gc.collect()
     
     # Measure execution time
-    start_time = time.time()
+    start_time = time.perf_counter()  # Changed from time.time() to time.perf_counter()
     result = func(*args, **kwargs)
-    end_time = time.time()
+    end_time = time.perf_counter()    # Changed from time.time() to time.perf_counter()
     
     return result, end_time - start_time
 
