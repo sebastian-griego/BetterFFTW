@@ -126,8 +126,7 @@ def time_function(func, *args, **kwargs):
     end_time = time.perf_counter()
     
     return result, end_time - start_time
-
-def benchmark_direct_comparison(n_datasets=3, save_results=True):
+def benchmark_direct_comparison(n_datasets=3, save_results=True, n_runs=None):
     """
     Compare BetterFFTW defaults against other libraries across
     various array sizes and dimensions.
@@ -135,8 +134,11 @@ def benchmark_direct_comparison(n_datasets=3, save_results=True):
     Args:
         n_datasets: Number of different random datasets to test
         save_results: Whether to save results to disk
+        n_runs: Ignored - kept for backward compatibility
     """
     logger.info("Starting enhanced direct comparison benchmark...")
+    
+    # n_runs parameter is now ignored since we're using a single measurement approach
     
     results = []
     
