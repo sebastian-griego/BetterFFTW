@@ -126,6 +126,7 @@ def time_function(func, *args, **kwargs):
     end_time = time.perf_counter()
     
     return result, end_time - start_time
+
 def benchmark_direct_comparison(n_datasets=3, save_results=True, n_runs=None):
     """
     Compare BetterFFTW defaults against other libraries across
@@ -302,7 +303,34 @@ def benchmark_direct_comparison(n_datasets=3, save_results=True, n_runs=None):
                                 "time": avg_time
                             }
                             results.append(result)
-
+    
+    # Convert results to DataFrame for analysis
+    if results:
+        results_df = pd.DataFrame(results)
+        
+        # Save detailed results to CSV
+        if save_results:
+            results_path = os.path.join(RESULTS_DIR, f"direct_comparison_{TIMESTAMP}.csv")
+            results_df.to_csv(results_path, index=False)
+            logger.info(f"Results saved to {results_path}")
+            
+            # Generate summary statistics
+            summary_df = results_df.groupby(
+                ['dimension', 'transform', 'size', 'is_power_of_2', 'dtype', 'implementation']
+            ).agg({'time': ['mean']}).reset_index()
+            summary_df.columns = ['_'.join(col).strip() for col in summary_df.columns.values]
+            
+            # Save summary statistics to CSV
+            summary_path = os.path.join(RESULTS_DIR, f"direct_comparison_summary_{TIMESTAMP}.csv")
+            summary_df.to_csv(summary_path, index=False)
+            logger.info(f"Summary statistics saved to {summary_path}")
+            
+            # Generate plots
+            plot_benchmark_results(results_df, TIMESTAMP)
+        
+        return results_df
+    
+    return None
 def benchmark_repeated_use(n_runs=5, n_datasets=3, save_results=True):
     """
     Measure performance when the same transform is used repeatedly,
