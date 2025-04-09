@@ -361,15 +361,15 @@ def benchmark_direct_comparison(n_datasets=3, save_results=True, n_runs=None):
             full_func_name = func_name + func_suffix
             logger.info(f"Testing {dim}D {transform_name} ({full_func_name})...")
             
-            # Different size limits based on dimension to avoid memory issues
+            # changing this to test all sizes for all dimensions
             if dim == 1:
                 sizes = all_sizes
             elif dim == 2:
                 # Limit 2D arrays to avoid memory issues
-                sizes = [s for s in all_sizes if s <= 4096]  # Expanded from 2048
+                sizes = all_sizes
             else:  # dim == 3
                 # Limit 3D arrays to avoid memory issues
-                sizes = [s for s in all_sizes if s <= 512]   # Expanded from 256
+                sizes = all_sizes
             
             for dtype_info in dtypes:
                 dtype_name = dtype_info["name"]
