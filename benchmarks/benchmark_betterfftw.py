@@ -366,10 +366,10 @@ def benchmark_direct_comparison(n_datasets=3, save_results=True, n_runs=None):
                 sizes = all_sizes
             elif dim == 2:
                 # Limit 2D arrays to avoid memory issues
-                sizes = all_sizes
+                sizes = [s for s in all_sizes if s <= 4096]
             else:  # dim == 3
                 # Limit 3D arrays to avoid memory issues
-                sizes = all_sizes
+                sizes = [s for s in all_sizes if s <= 1000]
             
             for dtype_info in dtypes:
                 dtype_name = dtype_info["name"]
