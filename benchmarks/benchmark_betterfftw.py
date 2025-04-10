@@ -2474,6 +2474,10 @@ def create_enhanced_summary_report(results_dict, save_file=None):
     if 'direct_comparison' in results_dict:
         direct_df = results_dict['direct_comparison']
         
+        # Add this line to rename the column
+        if 'time' in direct_df.columns and 'avg_execution_time' not in direct_df.columns:
+            direct_df = direct_df.rename(columns={'time': 'avg_execution_time'})
+            
         # Calculate overall average speedup vs NumPy
         pivot = direct_df.pivot_table(
             index=['dimension', 'transform', 'size', 'dataset_idx'],
