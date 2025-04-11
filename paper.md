@@ -1,19 +1,19 @@
 ---
 title: "BetterFFTW: A High-Performance, User-Friendly Wrapper for FFTW in Python"
 tags:
+  - Python
   - FFT
   - FFTW
   - PyFFTW
-  - Python
   - Scientific Computing
 authors:
-  - name: "Sebastian Griego"
-    orcid: "0009-0001-3195-8575"
-    affiliation: "1"
+  - name: Sebastian Griego
+    orcid: 0009-0001-3195-8575
+    affiliation: 1
 affiliations:
-  - name: "San Diego State University"
+  - name: San Diego State University
     index: 1
-date: 7 April 2025
+date: 11 April 2025
 bibliography: paper.bib
 ---
 
@@ -23,18 +23,11 @@ BetterFFTW is a GPL-3.0–licensed Python library that offers a high-level inter
 
 # Statement of Need
 
-Fourier transforms are essential for many scientific and engineering applications. While Python's NumPy and SciPy FFT functions are easy to use, they typically lack the performance benefits afforded by FFTW—a library renowned for its speed and efficiency when compared with traditional algorithms [@fftw]. Although pyFFTW exposes FFTW's capabilities to Python, its default settings are often suboptimal. BetterFFTW fills this gap by automating plan caching, thread management, and planner flag selection (e.g. using FFTW_ESTIMATE for one-off calls and upgrading to FFTW_MEASURE or FFTW_PATIENT for repeated transforms). This approach ensures that while the initial call may incur FFTW's planning overhead, subsequent FFTs benefit from high-amortized efficiency—particularly for multi-dimensional transforms where speedups can exceed 10×.
+Fourier transforms are essential for many scientific and engineering applications. While Python's NumPy and SciPy FFT functions are easy to use, they typically lack the performance benefits afforded by FFTW—a library renowned for its speed and efficiency when compared with traditional algorithms [@fftw]. Although pyFFTW exposes FFTW's capabilities to Python, its default settings are often suboptimal. BetterFFTW fills this gap by automating plan caching, thread management, and planner flag selection. This approach ensures that while the initial call may incur FFTW's planning overhead, subsequent FFTs benefit from high-amortized efficiency—particularly for multi-dimensional transforms where speedups can exceed 10×.
 
 # Implementation
 
-BetterFFTW is implemented as a thin, lightweight layer over pyFFTW [@pyfftw]. It mirrors the APIs of NumPy's and SciPy's FFT modules and leverages Python's uarray protocol for seamless integration. Major implementation details include:
-
-- **Plan Caching and Upgrade:** FFT plans are cached based on transform parameters. An initial plan is generated using a fast planner flag (FFTW_ESTIMATE); if the same transform is used repeatedly, the library schedules a background upgrade to a more optimized plan (using FFTW_MEASURE or FFTW_PATIENT) to improve performance.
-- **Automatic Thread Selection:** The library inspects input array sizes and dimensionality to automatically determine optimal thread counts, mitigating the overhead of excessive threading on small arrays.
-- **Fallback Mechanism:** When testing indicates that NumPy's FFT may be faster (especially for one-off or very small transforms), BetterFFTW will automatically revert to the default implementation.
-- **Planner Flags:** Users benefit from improved defaults without manual tuning; BetterFFTW uses FFTW's planner flags (e.g., FFTW_ESTIMATE, FFTW_MEASURE, FFTW_PATIENT, FFTW_EXHAUSTIVE) internally to balance planning time versus runtime performance.
-
-The design of BetterFFTW adheres to current JOSS criteria by providing a transparent, reproducible interface with full documentation, unit tests, and an accompanying repository (https://github.com/sebastian-griego/BetterFFTW).
+BetterFFTW is implemented as a thin, lightweight layer over pyFFTW [@pyfftw]. It mirrors the APIs of NumPy's and SciPy's FFT modules and leverages Python's uarray protocol for seamless integration. FFT plans are cached based on transform parameters. The library inspects input array sizes and dimensionality to automatically determine optimal thread counts, mitigating the overhead of excessive threading on small arrays. When testing indicates that NumPy's FFT may be faster (especially for one-off or very small transforms), BetterFFTW will automatically revert to the default implementation. Users benefit from improved defaults without manual tuning.
 
 # Performance
 
