@@ -1,31 +1,33 @@
-[![PyPI version](https://badge.fury.io/py/betterfftw.svg)](https://badge.fury.io/py/betterfftw)
+[![PyPI version](https://badge.fury.io/py/betterfftw.svg)](https://badge.fury.io/py/betterfftw)  
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
 # BetterFFTW
 
-A high-performance wrapper around pyFFTW with optimized defaults and automatic performance tuning.
+BetterFFTW is a thin, high-performance wrapper around [pyFFTW](https://github.com/pyFFTW/pyFFTW) that makes it easier to use FFTW in Python with optimized default settings and automatic performance tuning.
 
 ## About
 
-BetterFFTW is a drop‑in replacement for NumPy and SciPy FFT routines built on top of [pyFFTW](https://github.com/pyFFTW/pyFFTW). It automatically configures optimal performance settings based on your array’s characteristics—making it significantly faster than NumPy or SciPy in most use cases, especially when handling large sizes and multi‑dimensional data.
+BetterFFTW provides drop‑in replacements for NumPy and SciPy FFT routines. It aims to simplify FFTW’s complex configuration by automatically choosing settings (such as threading counts, FFTW planning strategies, and plan caching) that yield faster performance in many cases. In short, BetterFFTW makes it easier to harness FFTW’s speed in Python without manually tweaking countless parameters.
+
+That said, the library has its limitations. The performance numbers shown in benchmarks are based only on execution time and do not include the planning overhead. This means that if you are performing a transform only once or a few times, the planning phase may negate most of the speed gains. The benefits become clear only when FFT plans are reused repeatedly, which is how FFTW is designed to be used.
 
 ## Key Improvements
 
-- **Auto-tuned Threading:**  
-  Dynamically selects the optimal number of threads based on array size and dimensionality, ensuring minimal overhead on small arrays and maximum speed on large ones.
+- **Optimized Defaults:**  
+  The wrapper automatically selects the number of threads and FFTW planning strategy (starting with fast planning like FFTW_ESTIMATE and, for repeated use, upgrading to more thorough strategies such as FFTW_MEASURE). These defaults work well when the same FFT configuration is used multiple times.
 
-- **Progressive Optimization:**  
-  Automatically upgrades the planning strategy (from fast ESTIMATE to more thorough MEASURE) for transforms that are repeated or computationally intensive.
+- **Automatic Plan Caching and Reuse:**  
+  BetterFFTW caches FFTW plans based on array shape, data type, and transform parameters. This cache reuse is key to achieving speedup on repeated transforms, but note that a one-off transform can suffer from planning overhead.
 
-- **Enhanced Non-Power-of-2 Handling:**  
-  Special strategies are applied for arrays with non‑power‑of‑2 dimensions—areas where standard FFT implementations can struggle.
+- **Fallback to NumPy:**  
+  In situations where an FFTW plan is not yet amortized or where NumPy’s FFT performs better for a given configuration, BetterFFTW will automatically fall back to NumPy’s implementation to give you the best performance available under the circumstances.
 
-- **Performance-Based Fallback:**  
-  Smartly detects cases where NumPy’s FFT might be faster and falls back accordingly, so you always benefit from the best available performance.
+- **Improved Handling of Non-Power-of-2 Sizes:**  
+  BetterFFTW applies tailored strategies for non‑power‑of‑2 dimensions – a challenging area for FFT implementations – although these cases are not magic and still require plan reuse to see the benefit.
 
 ## Installation
 
-Install via pip:
+BetterFFTW is available on PyPI and can be installed using pip:
 
 ```bash
 pip install betterfftw
@@ -33,35 +35,43 @@ pip install betterfftw
 
 ## Usage
 
-BetterFFTW is designed to work seamlessly as the default FFT backend. Simply register it and enjoy the speed boost:
+BetterFFTW is designed to replace NumPy’s FFT routines with little to no code modification. To enable BetterFFTW’s FFT routines as the default, simply register it:
 
 ```python
 import betterfftw
 
-# Register BetterFFTW as the default FFT implementation
+# Register BetterFFTW as the default FFT backend for both NumPy and SciPy
 betterfftw.use_as_default()
 
 import numpy as np
 x = np.random.random(1024)
-y = np.fft.fft(x)  # Uses BetterFFTW under the hood for superior performance!
+y = np.fft.fft(x)  # This now uses BetterFFTW
 ```
 
-For specialized use cases, you can access explicit controls, but in most scenarios, the default settings are optimized for best performance.
+For more advanced scenarios, you can call the functions directly (e.g., `betterfftw.fft`, `betterfftw.ifft2`, etc.) to control parameters such as the number of threads or planning strategy.
 
-## Performance
+## Performance Notes
 
-BetterFFTW leverages advanced heuristics to optimize FFT performance:
-- **Faster Transforms:**  
-  Benchmarks show that BetterFFTW is a lot faster than the default NumPy or SciPy FFT routines, particularly for large arrays and high-dimensional transforms.
-- **Adaptive Tuning:**  
-  It automatically adapts planning strategies and thread counts based on your specific workload and system capabilities.
-- **Efficient Caching:**  
-  FFT plans are cached and intelligently upgraded, cutting down on redundant computation and ensuring continuous performance gains with repeated use.
+BetterFFTW can provide significant speed improvements over the default NumPy or SciPy FFT routines—especially for large, multi-dimensional arrays and when the same transform configuration is used repeatedly. Benchmarks (which do not account for FFT planning time) show impressive speedups; however, users should note:
+
+- **Planning Overhead:**  
+  The planning phase can take time, so one-off transforms may not be faster. The performance gains come from amortizing the planning cost over many FFTs.
+
+- **Repetition is Key:**  
+  BetterFFTW is most effective when you perform the same transform repeatedly, allowing the expensive planning phase to be paid off over many executions.
+
+- **Fallbacks:**  
+  In configurations where the FFTW plan is not yet amortized or isn’t optimal, BetterFFTW will revert to using NumPy’s FFT to avoid degraded performance.
 
 ## Credits
 
-BetterFFTW builds on [pyFFTW](https://github.com/pyFFTW/pyFFTW) and the [FFTW C library](http://www.fftw.org/). The project leverages these proven technologies, focusing on unlocking even greater performance through smart configuration and automatic tuning.
+BetterFFTW builds on the work of [pyFFTW](https://github.com/pyFFTW/pyFFTW) and the [FFTW C library](http://www.fftw.org/). This library is primarily intended for users who want the benefits of FFTW’s performance but without the hassles of manually managing FFTW’s options. It is not a magic bullet—users must design their applications to reuse FFT plans if they want to see the full performance benefits.
 
 ## License
 
-This project is licensed under the GPL-3.0 License—see the LICENSE file for details.
+This project is licensed under the GPL-3.0 License. See the LICENSE file for details.
+
+## Repository
+
+The source code and issue tracker are hosted on GitHub:  
+https://github.com/sebastian-griego/BetterFFTW
