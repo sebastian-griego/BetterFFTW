@@ -48,7 +48,7 @@ x = np.random.random(1024)
 y = np.fft.fft(x)  # This now uses BetterFFTW
 ```
 
-For more advanced scenarios, you can call the functions directly (e.g., `betterfftw.fft`, `betterfftw.ifft2`, etc.) to control parameters such as the number of threads or planning strategy.
+For more advanced scenarios, you can call the functions directly (e.g., `betterfftw.fft`, `betterfftw.ifft2`, etc.) to control parameters such as the number of threads or planning strategy. However, I would recommend using the pyFFTW library for this instead.
 
 ## Performance Notes
 
@@ -65,7 +65,7 @@ BetterFFTW can provide significant speed improvements over the default NumPy or 
 
 ## Credits
 
-BetterFFTW builds on the work of [pyFFTW](https://github.com/pyFFTW/pyFFTW) and the [FFTW C library](http://www.fftw.org/). This library is primarily intended for users who want the benefits of FFTW’s performance but without the hassles of manually managing FFTW’s options. It is not a magic bullet—users must design their applications to reuse FFT plans if they want to see the full performance benefits.
+BetterFFTW builds on the work of [pyFFTW](https://github.com/pyFFTW/pyFFTW) and the [FFTW C library](http://www.fftw.org/). I am very grateful to the creators and maintainers of both these excellent projects.
 
 ## License
 
