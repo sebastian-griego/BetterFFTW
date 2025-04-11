@@ -37,4 +37,4 @@ Benchmarks show that BetterFFTW is, on average, nearly 4× faster than NumPy's F
 
 The development of BetterFFTW was inspired by FFTW's renowned efficiency and by pyFFTW's efforts to bring FFTW to Python. Many thanks to Matteo Frigo and Steven G. Johnson for creating FFTW [@fftw] and to the maintainers of pyFFTW [@pyfftw]. BetterFFTW also benefits from the robust ecosystems of NumPy and SciPy. Feedback from early adopters has been invaluable for refining its default settings and usability.
 
-# References
+# References 
