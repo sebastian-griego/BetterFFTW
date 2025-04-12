@@ -11,7 +11,7 @@ authors:
     orcid: 0009-0001-3195-8575
     affiliation: 1
 affiliations:
-  - name: San Diego State University
+  - name: San Diego State University, United States
     index: 1
 date: 11 April 2025
 bibliography: paper.bib
