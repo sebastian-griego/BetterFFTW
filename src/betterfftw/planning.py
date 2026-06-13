@@ -11,7 +11,7 @@ import os
 import platform
 import psutil
 import logging
-from typing import Dict, Tuple, Optional, Union, Any, List
+from typing import Dict, Tuple, Optional, Union, Any, List, Callable
 
 # set up logging
 logger = logging.getLogger("betterfftw.planning")
@@ -196,9 +196,14 @@ def get_optimal_threads(array: np.ndarray) -> int:
     return sys_info['physical_cores']
 
 
-def benchmark_planners(array: np.ndarray, 
+def benchmark_planners(array: np.ndarray,
                       repeats: int = 5,
-                      strategies: List[str] = None) -> Dict[str, float]:
+                      strategies: Optional[List[str]] = None,
+                      builder_func: Optional[Callable] = None,
+                      n: Optional[Union[int, Tuple[int, ...]]] = None,
+                      axis: Union[int, Tuple[int, ...]] = -1,
+                      norm: Optional[str] = None,
+                      threads: Optional[int] = None) -> Dict[str, Dict[str, float]]:
     """
     Benchmark different planning strategies on an array to find the fastest.
     
@@ -206,14 +211,37 @@ def benchmark_planners(array: np.ndarray,
         array: Array to benchmark with
         repeats: Number of FFT operations to perform for each strategy
         strategies: Planner strategies to test (defaults to all)
+        builder_func: pyFFTW builder to benchmark (defaults to builders.fft)
+        n: Transform length/shape passed to the builder
+        axis: Transform axis/axes passed to the builder
+        norm: Normalization mode passed to the builder
+        threads: Thread count passed to the builder
         
     Returns:
-        Dict mapping strategies to their execution times
+        Dict mapping strategies to planning, execution, and total timing metrics.
     """
+    if repeats < 1:
+        raise ValueError("repeats must be >= 1")
+
     if strategies is None:
         strategies = [PLANNER_ESTIMATE, PLANNER_MEASURE, PLANNER_PATIENT]
     
+    valid_strategies = {
+        PLANNER_ESTIMATE,
+        PLANNER_MEASURE,
+        PLANNER_PATIENT,
+        PLANNER_EXHAUSTIVE,
+    }
+    unknown = set(strategies) - valid_strategies
+    if unknown:
+        raise ValueError(f"Unknown planner strategy: {sorted(unknown)}")
+
+    array = np.asarray(array)
     from .core import SmartFFTW
+    import pyfftw
+
+    if builder_func is None:
+        builder_func = pyfftw.builders.fft
     
     results = {}
     
@@ -226,8 +254,12 @@ def benchmark_planners(array: np.ndarray,
         
         # create a new plan with this strategy
         plan = SmartFFTW._create_plan(
-            array=array.copy(), 
-            builder_func=getattr(SmartFFTW, '_create_plan'),
+            array=array.copy(),
+            builder_func=builder_func,
+            n=n,
+            axis=axis,
+            norm=norm,
+            threads=threads,
             planner=strategy
         )
         

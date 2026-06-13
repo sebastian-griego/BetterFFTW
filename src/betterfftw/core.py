@@ -44,6 +44,7 @@ MAX_CACHE_SIZE = 2000                # Maximum number of plans to keep in cache
 
 # we'll use a timer to periodically clean the cache
 _cache_cleaning_interval = 1800  # 30 minutes (from 15 minutes)
+_cleaning_timer = None
 _cache_lock = threading.RLock()  # prevent race conditions
 _optimization_queue = []  # queue for background optimizations
 _optimization_lock = threading.RLock()  # lock for the optimization queue
@@ -63,6 +64,9 @@ WISDOM_FILE = os.path.expanduser("~/.betterfftw_wisdom")
 def _exit_handler():
     """Save wisdom and clean up resources when exiting."""
     try:
+        timer = globals().get("_cleaning_timer")
+        if timer is not None:
+            timer.cancel()
         SmartFFTW.export_wisdom(WISDOM_FILE)
         _optimization_executor.shutdown(wait=False)
     except Exception as e:
@@ -180,15 +184,16 @@ class SmartFFTW:
                 if key in cls._plan_quality:
                     del cls._plan_quality[key]
     @classmethod
-    def _get_cache_key(cls, array: np.ndarray, n: Optional[Union[int, Tuple[int, ...]]] = None, 
-                     axis: Union[int, Tuple[int, ...]] = -1, 
+    def _get_cache_key(cls, array: np.ndarray, n: Optional[Union[int, Tuple[int, ...]]] = None,
+                     axis: Union[int, Tuple[int, ...]] = -1,
                      norm: Optional[str] = None,
-                     transform_type: str = 'fft') -> Tuple:
+                     transform_type: str = 'fft',
+                     threads: Optional[int] = None,
+                     planner: Optional[str] = None) -> Tuple:
         """Generate a unique key for caching plans based on transform parameters."""
         shape = array.shape
         dtype = array.dtype
-        # include transform type in key to differentiate between fft, ifft, rfft, etc.
-        return (transform_type, shape, dtype, n, axis, norm)
+        return (transform_type, shape, dtype, n, axis, norm, threads, planner)
     
     @classmethod
     def _is_non_power_of_two(cls, dimensions):
@@ -216,6 +221,16 @@ class SmartFFTW:
         else:
             # Power-of-2 1D arrays do well with ESTIMATE
             return DEFAULT_PLANNER
+
+    @classmethod
+    def _resolve_plan_options(cls, array, dimensions, ndim, transform_type, threads, planner):
+        """Resolve auto-selected plan options before constructing a cache key."""
+        if threads is None:
+            threads = cls._select_threads(array)
+        if planner is None:
+            planner = cls._get_optimal_planner_for_shape(dimensions, ndim, transform_type)
+        return threads, planner
+
     @classmethod
     def _select_threads(cls, array: np.ndarray) -> int:
         """Auto-select optimal thread count based on array size and dimensionality."""
@@ -264,7 +279,7 @@ class SmartFFTW:
             return False
 
         # Unpack key information
-        transform_type, shape, dtype, n, axis, norm = key
+        transform_type, shape, dtype, n, axis, norm = key[:6]
         dimensions = shape if isinstance(shape, tuple) else (shape,)
         
         # Check if any dimension is non-power-of-two
@@ -338,6 +353,7 @@ class SmartFFTW:
                              n: Optional[Union[int, Tuple[int, ...]]] = None,
                              axis: Union[int, Tuple[int, ...]] = -1,
                              norm: Optional[str] = None,
+                             threads: Optional[int] = None,
                              **kwargs):
         """Schedule a plan for optimization in the background using thread pool."""
         with _optimization_lock:
@@ -352,8 +368,8 @@ class SmartFFTW:
             
             # Submit optimization task to thread pool
             future = _optimization_executor.submit(
-                cls._optimize_plan, 
-                key, array_copy, builder_func, n, axis, norm, kwargs
+                cls._optimize_plan,
+                key, array_copy, builder_func, n, axis, norm, threads, kwargs
             )
             _optimization_futures[key] = future
             
@@ -438,7 +454,7 @@ class SmartFFTW:
             return metrics
 
     @classmethod
-    def _optimize_plan(cls, key, array, builder_func, n, axis, norm, kwargs):
+    def _optimize_plan(cls, key, array, builder_func, n, axis, norm, threads, kwargs):
         """Perform actual plan optimization."""
         # Check if this plan is still in use
         with _cache_lock:
@@ -450,7 +466,7 @@ class SmartFFTW:
             try:
                 optimized_plan = cls._create_plan(
                     array, builder_func, n, axis, norm,
-                    threads=cls._select_threads(array),
+                    threads=threads or cls._select_threads(array),
                     planner=MEASURE_PLANNER,
                     **kwargs
                 )
@@ -529,8 +545,11 @@ class SmartFFTW:
             Transformed array
         """
  
-        # generate cache key for this transform
-        key = cls._get_cache_key(array, n, axis, norm, 'fft')
+        dimensions = [array.shape[axis] if n is None else n]
+        threads, planner = cls._resolve_plan_options(
+            array, dimensions, 1, 'fft', threads, planner
+        )
+        key = cls._get_cache_key(array, n, axis, norm, 'fft', threads, planner)
         
         # Check if this transform is known to perform better with NumPy
         if hasattr(cls, '_numpy_fallback_keys') and key in cls._numpy_fallback_keys:
@@ -551,17 +570,10 @@ class SmartFFTW:
                 # check if we should upgrade the plan
                 if cls._should_upgrade_plan(key):
                     # schedule optimization
-                    cls._schedule_optimization(key, array, pyfftw.builders.fft, n, axis, norm)
+                    cls._schedule_optimization(key, array, pyfftw.builders.fft, n, axis, norm, threads)
                     cls._plan_quality[key] = MEASURE_PLANNER
             else:
                 # create new plan
-                if planner is None:
-                    # Check for cached planner first
-                    planner = cls._plan_quality.get(key, None)
-                    if planner is None:
-                        # Determine optimal planner based on transform type and dimensions
-                        dimensions = [array.shape[axis] if n is None else n]
-                        planner = cls._get_optimal_planner_for_shape(dimensions, 1, 'fft')  # Pass transform type
                 fft_obj = cls._create_plan(array, pyfftw.builders.fft, n, axis, norm, threads, planner)
                 
                 # cache the plan
@@ -574,7 +586,7 @@ class SmartFFTW:
             exec_time = time.time() - start_time
             
             # Check performance of non-power-of-2 transforms that should have been optimized
-            transform_type, shape, dtype, n, axis, norm = key
+            transform_type, shape, dtype, n, axis, norm = key[:6]
             dimensions = shape if isinstance(shape, tuple) else (shape,)
             non_power_of_two = any((dim & (dim - 1)) != 0 for dim in dimensions)
             size = np.prod(dimensions)
@@ -645,8 +657,11 @@ class SmartFFTW:
             Inverse-transformed array
         """
        
-        # generate cache key for this transform
-        key = cls._get_cache_key(array, n, axis, norm, 'ifft')
+        dimensions = [array.shape[axis] if n is None else n]
+        threads, planner = cls._resolve_plan_options(
+            array, dimensions, 1, 'ifft', threads, planner
+        )
+        key = cls._get_cache_key(array, n, axis, norm, 'ifft', threads, planner)
         
         with _cache_lock:
             # track call frequency for this shape
@@ -661,17 +676,10 @@ class SmartFFTW:
                 # check if we should upgrade the plan
                 if cls._should_upgrade_plan(key):
                     # schedule optimization
-                    cls._schedule_optimization(key, array, pyfftw.builders.ifft, n, axis, norm)
+                    cls._schedule_optimization(key, array, pyfftw.builders.ifft, n, axis, norm, threads)
                     cls._plan_quality[key] = MEASURE_PLANNER
             else:
                 # create new plan
-                if planner is None:
-                    # Check for cached planner first
-                    planner = cls._plan_quality.get(key, None)
-                    if planner is None:
-                        # Determine optimal planner based on transform type and dimensions
-                        dimensions = [array.shape[axis] if n is None else n]
-                        planner = cls._get_optimal_planner_for_shape(dimensions, 1, 'ifft')  # Pass transform type
                 ifft_obj = cls._create_plan(array, pyfftw.builders.ifft, n, axis, norm, threads, planner)
                 
                 # cache the plan
@@ -714,8 +722,11 @@ class SmartFFTW:
         """
         
   
-        # generate cache key for this transform
-        key = cls._get_cache_key(array, n, axis, norm, 'rfft')
+        dimensions = [array.shape[axis] if n is None else n]
+        threads, planner = cls._resolve_plan_options(
+            array, dimensions, 1, 'rfft', threads, planner
+        )
+        key = cls._get_cache_key(array, n, axis, norm, 'rfft', threads, planner)
         
         with _cache_lock:
             # track call frequency for this shape
@@ -730,17 +741,10 @@ class SmartFFTW:
                 # check if we should upgrade the plan
                 if cls._should_upgrade_plan(key):
                     # schedule optimization
-                    cls._schedule_optimization(key, array, pyfftw.builders.rfft, n, axis, norm)
+                    cls._schedule_optimization(key, array, pyfftw.builders.rfft, n, axis, norm, threads)
                     cls._plan_quality[key] = MEASURE_PLANNER
             else:
                 # create new plan
-                if planner is None:
-                    # Check for cached planner first
-                    planner = cls._plan_quality.get(key, None)
-                    if planner is None:
-                        # Determine optimal planner based on transform type and dimensions
-                        dimensions = [array.shape[axis] if n is None else n]
-                        planner = cls._get_optimal_planner_for_shape(dimensions, 1, 'rfft')  # Pass transform type
                 rfft_obj = cls._create_plan(array, pyfftw.builders.rfft, n, axis, norm, threads, planner)
                 
                 # cache the plan
@@ -782,8 +786,11 @@ class SmartFFTW:
             Inverse-transformed real array
         """
    
-        # generate cache key for this transform
-        key = cls._get_cache_key(array, n, axis, norm, 'irfft')
+        dimensions = [array.shape[axis] if n is None else n]
+        threads, planner = cls._resolve_plan_options(
+            array, dimensions, 1, 'irfft', threads, planner
+        )
+        key = cls._get_cache_key(array, n, axis, norm, 'irfft', threads, planner)
         
         with _cache_lock:
             # track call frequency for this shape
@@ -798,17 +805,10 @@ class SmartFFTW:
                 # check if we should upgrade the plan
                 if cls._should_upgrade_plan(key):
                     # schedule optimization
-                    cls._schedule_optimization(key, array, pyfftw.builders.irfft, n, axis, norm)
+                    cls._schedule_optimization(key, array, pyfftw.builders.irfft, n, axis, norm, threads)
                     cls._plan_quality[key] = MEASURE_PLANNER
             else:
                 # create new plan
-                if planner is None:
-                    # Check for cached planner first
-                    planner = cls._plan_quality.get(key, None)
-                    if planner is None:
-                        # Determine optimal planner based on transform type and dimensions
-                        dimensions = [array.shape[axis] if n is None else n]
-                        planner = cls._get_optimal_planner_for_shape(dimensions, 1, 'irfft')  # Pass transform type
                 irfft_obj = cls._create_plan(array, pyfftw.builders.irfft, n, axis, norm, threads, planner)
                 
                 # cache the plan
@@ -851,8 +851,11 @@ class SmartFFTW:
         """
         
 
-        # generate cache key for this transform
-        key = cls._get_cache_key(array, s, axes, norm, 'fft2')
+        dimensions = [array.shape[ax] for ax in axes] if s is None else s
+        threads, planner = cls._resolve_plan_options(
+            array, dimensions, 2, 'fft2', threads, planner
+        )
+        key = cls._get_cache_key(array, s, axes, norm, 'fft2', threads, planner)
         
         with _cache_lock:
             # track call frequency for this shape
@@ -867,17 +870,10 @@ class SmartFFTW:
                 # check if we should upgrade the plan
                 if cls._should_upgrade_plan(key):
                     # schedule optimization
-                    cls._schedule_optimization(key, array, pyfftw.builders.fft2, s, axes, norm)
+                    cls._schedule_optimization(key, array, pyfftw.builders.fft2, s, axes, norm, threads)
                     cls._plan_quality[key] = MEASURE_PLANNER
             else:
                 # create new plan
-                if planner is None:
-                    # Check for cached planner first
-                    planner = cls._plan_quality.get(key, None)
-                    if planner is None:
-                        # Determine optimal planner based on transform type and dimensions
-                        dimensions = [array.shape[ax] for ax in axes] if s is None else s
-                        planner = cls._get_optimal_planner_for_shape(dimensions, 2, 'fft2')  # Pass transform type
                 fft2_obj = cls._create_plan(array, pyfftw.builders.fft2, s, axes, norm, threads, planner)
                 
                 # cache the plan
@@ -923,8 +919,11 @@ class SmartFFTW:
             Inverse-transformed array
         """
      
-        # generate cache key for this transform
-        key = cls._get_cache_key(array, s, axes, norm, 'ifft2')
+        dimensions = [array.shape[ax] for ax in axes] if s is None else s
+        threads, planner = cls._resolve_plan_options(
+            array, dimensions, 2, 'ifft2', threads, planner
+        )
+        key = cls._get_cache_key(array, s, axes, norm, 'ifft2', threads, planner)
         with _cache_lock:
             # track call frequency for this shape
             cls._call_count[key] = cls._call_count.get(key, 0) + 1
@@ -938,17 +937,10 @@ class SmartFFTW:
                 # check if we should upgrade the plan
                 if cls._should_upgrade_plan(key):
                     # schedule optimization
-                    cls._schedule_optimization(key, array, pyfftw.builders.ifft2, s, axes, norm)
+                    cls._schedule_optimization(key, array, pyfftw.builders.ifft2, s, axes, norm, threads)
                     cls._plan_quality[key] = MEASURE_PLANNER
             else:
                 # create new plan
-                if planner is None:
-                    # Check for cached planner first
-                    planner = cls._plan_quality.get(key, None)
-                    if planner is None:
-                        # Determine optimal planner based on transform type and dimensions
-                        dimensions = [array.shape[ax] for ax in axes] if s is None else s
-                        planner = cls._get_optimal_planner_for_shape(dimensions, 2, 'ifft2')  # Pass transform type
                 ifft2_obj = cls._create_plan(array, pyfftw.builders.ifft2, s, axes, norm, threads, planner)
                 
                 # cache the plan
@@ -994,8 +986,11 @@ class SmartFFTW:
             Transformed array
         """
     
-        # generate cache key for this transform
-        key = cls._get_cache_key(array, s, axes, norm, 'rfft2')
+        dimensions = [array.shape[ax] if s is None else s[i] for i, ax in enumerate(axes)]
+        threads, planner = cls._resolve_plan_options(
+            array, dimensions, 2, 'rfft2', threads, planner
+        )
+        key = cls._get_cache_key(array, s, axes, norm, 'rfft2', threads, planner)
         
         with _cache_lock:
             # track call frequency for this shape
@@ -1010,17 +1005,10 @@ class SmartFFTW:
                 # check if we should upgrade the plan
                 if cls._should_upgrade_plan(key):
                     # schedule optimization
-                    cls._schedule_optimization(key, array, pyfftw.builders.rfft2, s, axes, norm)
+                    cls._schedule_optimization(key, array, pyfftw.builders.rfft2, s, axes, norm, threads)
                     cls._plan_quality[key] = MEASURE_PLANNER
             else:
                 # create new plan
-                if planner is None:
-                    # Check for cached planner first
-                    planner = cls._plan_quality.get(key, None)
-                    if planner is None:
-                        # Determine optimal planner based on transform type and dimensions
-                        dimensions = [array.shape[ax] if s is None else s[i] for i, ax in enumerate(axes)]
-                        planner = cls._get_optimal_planner_for_shape(dimensions, 2, 'rfft2')  # Pass transform type
                 rfft2_obj = cls._create_plan(array, pyfftw.builders.rfft2, s, axes, norm, threads, planner)
                 
                 # cache the plan
@@ -1066,8 +1054,11 @@ class SmartFFTW:
             Inverse-transformed real array
         """
 
-        # generate cache key for this transform
-        key = cls._get_cache_key(array, s, axes, norm, 'irfft2')
+        dimensions = [array.shape[ax] if s is None else s[i] for i, ax in enumerate(axes)]
+        threads, planner = cls._resolve_plan_options(
+            array, dimensions, 2, 'irfft2', threads, planner
+        )
+        key = cls._get_cache_key(array, s, axes, norm, 'irfft2', threads, planner)
         
         with _cache_lock:
             # track call frequency for this shape
@@ -1082,17 +1073,10 @@ class SmartFFTW:
                 # check if we should upgrade the plan
                 if cls._should_upgrade_plan(key):
                     # schedule optimization
-                    cls._schedule_optimization(key, array, pyfftw.builders.irfft2, s, axes, norm)
+                    cls._schedule_optimization(key, array, pyfftw.builders.irfft2, s, axes, norm, threads)
                     cls._plan_quality[key] = MEASURE_PLANNER
             else:
                 # create new plan
-                if planner is None:
-                    # Check for cached planner first
-                    planner = cls._plan_quality.get(key, None)
-                    if planner is None:
-                        # Determine optimal planner based on transform type and dimensions
-                        dimensions = [array.shape[ax] if s is None else s[i] for i, ax in enumerate(axes)]
-                        planner = cls._get_optimal_planner_for_shape(dimensions, 2, 'irfft2')  # Pass transform type
                 irfft2_obj = cls._create_plan(array, pyfftw.builders.irfft2, s, axes, norm, threads, planner)
                 
                 # cache the plan
@@ -1138,8 +1122,16 @@ class SmartFFTW:
             Transformed array
         """
 
-        # generate cache key for this transform
-        key = cls._get_cache_key(array, s, axes, norm, 'fftn')
+        if s is not None:
+            dimensions = s
+        elif axes is not None:
+            dimensions = [array.shape[ax] for ax in axes]
+        else:
+            dimensions = array.shape
+        threads, planner = cls._resolve_plan_options(
+            array, dimensions, array.ndim, 'fftn', threads, planner
+        )
+        key = cls._get_cache_key(array, s, axes, norm, 'fftn', threads, planner)
         
         with _cache_lock:
             # track call frequency for this shape
@@ -1154,22 +1146,10 @@ class SmartFFTW:
                 # check if we should upgrade the plan
                 if cls._should_upgrade_plan(key):
                     # schedule optimization
-                    cls._schedule_optimization(key, array, pyfftw.builders.fftn, s, axes, norm)
+                    cls._schedule_optimization(key, array, pyfftw.builders.fftn, s, axes, norm, threads)
                     cls._plan_quality[key] = MEASURE_PLANNER
             else:
                 # create new plan
-                if planner is None:
-                    # Check for cached planner first
-                    planner = cls._plan_quality.get(key, None)
-                    if planner is None:
-                        # Determine optimal planner based on transform type and dimensions
-                        if s is not None:
-                            dimensions = s
-                        elif axes is not None:
-                            dimensions = [array.shape[ax] for ax in axes]
-                        else:
-                            dimensions = array.shape
-                        planner = cls._get_optimal_planner_for_shape(dimensions, array.ndim, 'fftn')  # Pass transform type
                 fftn_obj = cls._create_plan(array, pyfftw.builders.fftn, s, axes, norm, threads, planner)
                 
                 # cache the plan
@@ -1220,8 +1200,16 @@ class SmartFFTW:
             Inverse-transformed array
         """
    
-        # generate cache key for this transform
-        key = cls._get_cache_key(array, s, axes, norm, 'ifftn')
+        if s is not None:
+            dimensions = s
+        elif axes is not None:
+            dimensions = [array.shape[ax] for ax in axes]
+        else:
+            dimensions = array.shape
+        threads, planner = cls._resolve_plan_options(
+            array, dimensions, array.ndim, 'ifftn', threads, planner
+        )
+        key = cls._get_cache_key(array, s, axes, norm, 'ifftn', threads, planner)
         
         with _cache_lock:
             # track call frequency for this shape
@@ -1236,22 +1224,10 @@ class SmartFFTW:
                 # check if we should upgrade the plan
                 if cls._should_upgrade_plan(key):
                     # schedule optimization
-                    cls._schedule_optimization(key, array, pyfftw.builders.ifftn, s, axes, norm)
+                    cls._schedule_optimization(key, array, pyfftw.builders.ifftn, s, axes, norm, threads)
                     cls._plan_quality[key] = MEASURE_PLANNER
             else:
                 # create new plan
-                if planner is None:
-                    # Check for cached planner first
-                    planner = cls._plan_quality.get(key, None)
-                    if planner is None:
-                        # Determine optimal planner based on transform type and dimensions
-                        if s is not None:
-                            dimensions = s
-                        elif axes is not None:
-                            dimensions = [array.shape[ax] for ax in axes]
-                        else:
-                            dimensions = array.shape
-                        planner = cls._get_optimal_planner_for_shape(dimensions, array.ndim, 'ifftn')  # Pass transform type
                 ifftn_obj = cls._create_plan(array, pyfftw.builders.ifftn, s, axes, norm, threads, planner)
                 
                 # cache the plan
@@ -1303,8 +1279,16 @@ class SmartFFTW:
         """
         
 
-        # generate cache key for this transform
-        key = cls._get_cache_key(array, s, axes, norm, 'rfftn')
+        if s is not None:
+            dimensions = s
+        elif axes is not None:
+            dimensions = [array.shape[ax] for ax in axes]
+        else:
+            dimensions = array.shape
+        threads, planner = cls._resolve_plan_options(
+            array, dimensions, array.ndim, 'rfftn', threads, planner
+        )
+        key = cls._get_cache_key(array, s, axes, norm, 'rfftn', threads, planner)
         
         with _cache_lock:
             # track call frequency for this shape
@@ -1319,22 +1303,10 @@ class SmartFFTW:
                 # check if we should upgrade the plan
                 if cls._should_upgrade_plan(key):
                     # schedule optimization
-                    cls._schedule_optimization(key, array, pyfftw.builders.rfftn, s, axes, norm)
+                    cls._schedule_optimization(key, array, pyfftw.builders.rfftn, s, axes, norm, threads)
                     cls._plan_quality[key] = MEASURE_PLANNER
             else:
                 # create new plan
-                if planner is None:
-                    # Check for cached planner first
-                    planner = cls._plan_quality.get(key, None)
-                    if planner is None:
-                        # Determine optimal planner based on transform type and dimensions
-                        if s is not None:
-                            dimensions = s
-                        elif axes is not None:
-                            dimensions = [array.shape[ax] for ax in axes]
-                        else:
-                            dimensions = array.shape
-                        planner = cls._get_optimal_planner_for_shape(dimensions, array.ndim, 'rfftn')  # Pass transform type
                 rfftn_obj = cls._create_plan(array, pyfftw.builders.rfftn, s, axes, norm, threads, planner)
                 
                 # cache the plan
@@ -1385,8 +1357,16 @@ class SmartFFTW:
             Inverse-transformed real array
         """
         
-        # generate cache key for this transform
-        key = cls._get_cache_key(array, s, axes, norm, 'irfftn')
+        if s is not None:
+            dimensions = s
+        elif axes is not None:
+            dimensions = [array.shape[ax] for ax in axes]
+        else:
+            dimensions = array.shape
+        threads, planner = cls._resolve_plan_options(
+            array, dimensions, array.ndim, 'irfftn', threads, planner
+        )
+        key = cls._get_cache_key(array, s, axes, norm, 'irfftn', threads, planner)
         
         with _cache_lock:
             # track call frequency for this shape
@@ -1401,22 +1381,10 @@ class SmartFFTW:
                 # check if we should upgrade the plan
                 if cls._should_upgrade_plan(key):
                     # schedule optimization
-                    cls._schedule_optimization(key, array, pyfftw.builders.irfftn, s, axes, norm)
+                    cls._schedule_optimization(key, array, pyfftw.builders.irfftn, s, axes, norm, threads)
                     cls._plan_quality[key] = MEASURE_PLANNER
             else:
                 # create new plan
-                if planner is None:
-                    # Check for cached planner first
-                    planner = cls._plan_quality.get(key, None)
-                    if planner is None:
-                        # Determine optimal planner based on transform type and dimensions
-                        if s is not None:
-                            dimensions = s
-                        elif axes is not None:
-                            dimensions = [array.shape[ax] for ax in axes]
-                        else:
-                            dimensions = array.shape
-                        planner = cls._get_optimal_planner_for_shape(dimensions, array.ndim, 'irfftn')  # Pass transform type
                 irfftn_obj = cls._create_plan(array, pyfftw.builders.irfftn, s, axes, norm, threads, planner)
                 
                 # cache the plan
@@ -1608,16 +1576,24 @@ class SmartFFTW:
 # Attempt to import wisdom at module load time
 SmartFFTW.import_wisdom()
 
-# Start a periodic timer to clean up the cache
+def _start_cache_cleaning_timer():
+    """Start the periodic cache cleaner as a daemon timer."""
+    global _cleaning_timer
+    _cleaning_timer = threading.Timer(_cache_cleaning_interval, _clean_cache)
+    _cleaning_timer.daemon = True
+    _cleaning_timer.start()
+    return _cleaning_timer
+
+
+# Start a periodic timer to clean up the cache.
 def _clean_cache():
     """Periodically clean the cache of unused plans."""
     SmartFFTW.clear_cache(older_than=DEFAULT_CACHE_TIMEOUT)
-    threading.Timer(_cache_cleaning_interval, _clean_cache).start()
-    
+    _start_cache_cleaning_timer()
+
+
 # Start the cache cleaning timer
-cleaning_timer = threading.Timer(_cache_cleaning_interval, _clean_cache)
-cleaning_timer.daemon = True  # allow the program to exit without waiting for timer
-cleaning_timer.start()
+cleaning_timer = _start_cache_cleaning_timer()
 
 # Create a singleton instance for simple access
 fftw = SmartFFTW()

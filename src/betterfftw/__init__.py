@@ -27,11 +27,11 @@ Advanced usage:
     aligned_array = bfft.empty_aligned((1024, 1024), dtype=np.complex128)
 """
 
-import os
 import logging
+import os
 
 
-__version__ = '0.1.0'
+__version__ = '0.1.3'
 # Import core functionality
 from .core import (
     # Main FFT functions
@@ -93,7 +93,7 @@ _config = {
         'min_repeat_for_upgrade': 5,
     },
     'threading': {
-        'default_threads': min(os.cpu_count(), 4),
+        'default_threads': min(os.cpu_count() or 1, 4),
         'small_threshold': 16384,
         'medium_threshold': 65536,
         'large_threshold': 262144,
@@ -270,9 +270,6 @@ try:
     import_wisdom()
 except Exception:
     pass  # Silently continue if wisdom import fails
-
-# Expose the configure function at package level
-from . import configure
 
 # Default configuration - load wisdom, but don't replace NumPy/SciPy FFT yet
 # This makes the package ready to use but non-invasive by default
