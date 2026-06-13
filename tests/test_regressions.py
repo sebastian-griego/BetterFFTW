@@ -27,6 +27,49 @@ def test_registered_numpy_fft_falls_back_to_original_numpy(monkeypatch):
     np.testing.assert_allclose(result, expected)
 
 
+def test_as_default_context_restores_numpy_fft_after_exit():
+    betterfftw.restore_default()
+    original_fft = np.fft.fft
+    values = np.arange(16.0)
+
+    with betterfftw.as_default(register_scipy=False):
+        assert np.fft.fft is not original_fft
+        np.testing.assert_allclose(np.fft.fft(values), betterfftw.fft(values))
+
+    assert np.fft.fft is original_fft
+
+
+def test_as_default_context_restores_numpy_fft_after_exception():
+    betterfftw.restore_default()
+    original_fft = np.fft.fft
+
+    with pytest.raises(RuntimeError, match="forced"):
+        with betterfftw.as_default(register_scipy=False):
+            assert np.fft.fft is not original_fft
+            raise RuntimeError("forced")
+
+    assert np.fft.fft is original_fft
+
+
+def test_as_default_context_preserves_existing_registration():
+    betterfftw.restore_default()
+    original_fft = np.fft.fft
+
+    try:
+        betterfftw.use_as_default(register_scipy=False)
+        registered_fft = np.fft.fft
+        assert registered_fft is not original_fft
+
+        with betterfftw.as_default(register_scipy=False):
+            assert np.fft.fft is registered_fft
+
+        assert np.fft.fft is registered_fft
+    finally:
+        betterfftw.restore_default()
+
+    assert np.fft.fft is original_fft
+
+
 def test_cache_key_separates_explicit_thread_counts():
     SmartFFTW.clear_cache()
     values = np.arange(64.0)

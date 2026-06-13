@@ -29,6 +29,7 @@ Advanced usage:
 
 import logging
 import os
+from contextlib import contextmanager
 
 
 __version__ = '0.1.3'
@@ -64,6 +65,7 @@ from .interface import (
     fftfreq, rfftfreq, fftshift, ifftshift,
     hfft, ihfft
 )
+from . import interface as _interface
 
 # Import planning module for advanced users
 from .planning import (
@@ -264,6 +266,34 @@ def restore_default(unregister_scipy=True):
         unregister_scipy: Whether to also unregister from SciPy's FFT functions.
     """
     return restore_default_fft(unregister_scipy)
+
+
+@contextmanager
+def as_default(register_scipy=True):
+    """
+    Temporarily register BetterFFTW as the NumPy/SciPy FFT implementation.
+
+    This is the safer form of ``use_as_default`` for notebooks, tests, and
+    libraries because the previous NumPy FFT state is restored when the context
+    exits, even if an exception is raised. If BetterFFTW was already registered
+    before entering the context, it remains registered after exit.
+
+    Args:
+        register_scipy: Whether to also register for SciPy FFT functions.
+
+    Example:
+        >>> import numpy as np
+        >>> import betterfftw
+        >>> with betterfftw.as_default(register_scipy=False):
+        ...     np.fft.fft(np.ones(8))
+    """
+    was_registered = bool(getattr(_interface, "_registered_as_default", False))
+    use_as_default(register_scipy=register_scipy)
+    try:
+        yield
+    finally:
+        if not was_registered:
+            restore_default(unregister_scipy=register_scipy)
 
 # Try to import wisdom at package initialization time
 try:

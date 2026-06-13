@@ -47,6 +47,17 @@ y = np.fft.fft(x)
 betterfftw.restore_default()
 ```
 
+For scoped use in tests, notebooks, or larger applications, prefer the context
+manager so NumPy is restored automatically:
+
+```python
+import numpy as np
+import betterfftw
+
+with betterfftw.as_default(register_scipy=False):
+    y = np.fft.fft(np.ones(1024))
+```
+
 ## What It Optimizes
 
 - Caches FFTW plans by transform type, shape, dtype, transform parameters, thread
