@@ -27,11 +27,12 @@ Advanced usage:
     aligned_array = bfft.empty_aligned((1024, 1024), dtype=np.complex128)
 """
 
-import os
 import logging
+import os
+from contextlib import contextmanager
 
 
-__version__ = '0.1.0'
+__version__ = '0.1.3'
 # Import core functionality
 from .core import (
     # Main FFT functions
@@ -64,6 +65,7 @@ from .interface import (
     fftfreq, rfftfreq, fftshift, ifftshift,
     hfft, ihfft
 )
+from . import interface as _interface
 
 # Import planning module for advanced users
 from .planning import (
@@ -93,7 +95,7 @@ _config = {
         'min_repeat_for_upgrade': 5,
     },
     'threading': {
-        'default_threads': min(os.cpu_count(), 4),
+        'default_threads': min(os.cpu_count() or 1, 4),
         'small_threshold': 16384,
         'medium_threshold': 65536,
         'large_threshold': 262144,
@@ -265,14 +267,39 @@ def restore_default(unregister_scipy=True):
     """
     return restore_default_fft(unregister_scipy)
 
+
+@contextmanager
+def as_default(register_scipy=True):
+    """
+    Temporarily register BetterFFTW as the NumPy/SciPy FFT implementation.
+
+    This is the safer form of ``use_as_default`` for notebooks, tests, and
+    libraries because the previous NumPy FFT state is restored when the context
+    exits, even if an exception is raised. If BetterFFTW was already registered
+    before entering the context, it remains registered after exit.
+
+    Args:
+        register_scipy: Whether to also register for SciPy FFT functions.
+
+    Example:
+        >>> import numpy as np
+        >>> import betterfftw
+        >>> with betterfftw.as_default(register_scipy=False):
+        ...     np.fft.fft(np.ones(8))
+    """
+    was_registered = bool(getattr(_interface, "_registered_as_default", False))
+    use_as_default(register_scipy=register_scipy)
+    try:
+        yield
+    finally:
+        if not was_registered:
+            restore_default(unregister_scipy=register_scipy)
+
 # Try to import wisdom at package initialization time
 try:
     import_wisdom()
 except Exception:
     pass  # Silently continue if wisdom import fails
-
-# Expose the configure function at package level
-from . import configure
 
 # Default configuration - load wisdom, but don't replace NumPy/SciPy FFT yet
 # This makes the package ready to use but non-invasive by default

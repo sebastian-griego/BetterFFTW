@@ -475,7 +475,10 @@ class TestBetterFFTW(unittest.TestCase):
         
         # print results (informational, not an assertion)
         print(f"NumPy: {numpy_time:.4f}s, BetterFFTW: {betterfftw_time:.4f}s")
-        print(f"Speedup: {numpy_time / betterfftw_time:.2f}x")
+        if betterfftw_time > 0:
+            print(f"Speedup: {numpy_time / betterfftw_time:.2f}x")
+        else:
+            print("Speedup: too fast to measure reliably")
     
     def test_stat_functions(self):
         """Test statistical functions of BetterFFTW"""

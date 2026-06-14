@@ -14,10 +14,17 @@ venv/
 
 # Testing
 .pytest_cache/
+.coverage
+htmlcov/
 
 # IDE files
 .vscode/
 .idea/
+
+# Notebook/runtime artifacts
+.ipynb_checkpoints/
+.betterfftw_wisdom
+test_wisdom.dat
 
 # Generated files
 *.png

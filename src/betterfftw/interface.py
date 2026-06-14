@@ -17,13 +17,26 @@ logger = logging.getLogger("betterfftw.interface")
 
 # keep track of whether we're registered as the default backend
 _registered_as_default = False
-# Store original NumPy functions before any patching
-_original_numpy_fftfreq = np.fft.fftfreq
-_original_numpy_rfftfreq = np.fft.rfftfreq
-_original_numpy_fftshift = np.fft.fftshift
-_original_numpy_ifftshift = np.fft.ifftshift
-_original_numpy_hfft = np.fft.hfft
-_original_numpy_ihfft = np.fft.ihfft
+_NUMPY_FFT_NAMES = (
+    'fft', 'ifft', 'rfft', 'irfft',
+    'fft2', 'ifft2', 'rfft2', 'irfft2',
+    'fftn', 'ifftn', 'rfftn', 'irfftn',
+    'hfft', 'ihfft',
+    'fftfreq', 'rfftfreq', 'fftshift', 'ifftshift',
+)
+
+# Store original NumPy functions before any patching. Safe fallbacks must use
+# these references because np.fft.<name> may later point back to BetterFFTW.
+_ORIGINAL_NUMPY_BY_NAME = {
+    name: getattr(np.fft, name)
+    for name in _NUMPY_FFT_NAMES
+}
+_original_numpy_fftfreq = _ORIGINAL_NUMPY_BY_NAME['fftfreq']
+_original_numpy_rfftfreq = _ORIGINAL_NUMPY_BY_NAME['rfftfreq']
+_original_numpy_fftshift = _ORIGINAL_NUMPY_BY_NAME['fftshift']
+_original_numpy_ifftshift = _ORIGINAL_NUMPY_BY_NAME['ifftshift']
+_original_numpy_hfft = _ORIGINAL_NUMPY_BY_NAME['hfft']
+_original_numpy_ihfft = _ORIGINAL_NUMPY_BY_NAME['ihfft']
 # Dictionary to store overridden NumPy functions
 _original_numpy_funcs = {}
 # Dictionary to store overridden SciPy functions
@@ -522,8 +535,9 @@ def register_numpy_fft():
     
     # Save the original functions if we haven't already
     if not _original_numpy_funcs:
-        for np_func, our_func in _numpy_function_map.items():
-            _original_numpy_funcs[np_func] = np_func
+        for np_func in _numpy_function_map.keys():
+            func_name = np_func.__name__
+            _original_numpy_funcs[func_name] = _ORIGINAL_NUMPY_BY_NAME[func_name]
     
     # Replace NumPy functions with ours
     for np_func, our_func in _numpy_function_map.items():
@@ -542,9 +556,8 @@ def unregister_numpy_fft():
     global _registered_as_default
     
     # Restore original functions
-    for orig_func in _original_numpy_funcs.keys():
-        func_name = orig_func.__name__
-        setattr(np.fft, func_name, _original_numpy_funcs[orig_func])
+    for func_name, orig_func in _original_numpy_funcs.items():
+        setattr(np.fft, func_name, orig_func)
     
     _registered_as_default = False
     return True
@@ -666,7 +679,7 @@ def _enable_array_function_protocol():
 
 
 # Set up safe fallbacks for all functions
-for func_name in ['fft', 'ifft', 'rfft', 'irfft', 'fft2', 'ifft2', 'rfft2', 'irfft2', 
+for func_name in ['fft', 'ifft', 'rfft', 'irfft', 'fft2', 'ifft2', 'rfft2', 'irfft2',
                  'fftn', 'ifftn', 'rfftn', 'irfftn', 'hfft', 'ihfft']:
     # Create a safe wrapper that falls back to NumPy
     def create_safe_wrapper(our_func, np_func_name):
@@ -675,10 +688,20 @@ for func_name in ['fft', 'ifft', 'rfft', 'irfft', 'fft2', 'ifft2', 'rfft2', 'irf
             try:
                 return our_func(*args, **kwargs)
             except Exception as e:
-                np_func = getattr(np.fft, np_func_name)
+                np_func = _original_numpy_funcs.get(
+                    np_func_name,
+                    _ORIGINAL_NUMPY_BY_NAME[np_func_name],
+                )
                 warnings.warn(f"BetterFFTW {np_func_name} failed, falling back to NumPy: {str(e)}")
                 return np_func(*args, **kwargs)
         return safe_wrapper
     
     # Apply the safe wrapper
     globals()[func_name] = create_safe_wrapper(globals()[func_name], func_name)
+
+# Keep the registration map aligned with the safe wrappers above. Without this,
+# np.fft monkey-patching installs the raw wrappers and runtime fallback is skipped.
+for np_func in list(_numpy_function_map.keys()):
+    func_name = np_func.__name__
+    if func_name in globals():
+        _numpy_function_map[np_func] = globals()[func_name]

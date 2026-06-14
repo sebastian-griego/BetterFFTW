@@ -38,3 +38,8 @@ dev = [
 [tool.setuptools]
 package-dir = {"" = "src"}
 packages = ["betterfftw"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-ra"
